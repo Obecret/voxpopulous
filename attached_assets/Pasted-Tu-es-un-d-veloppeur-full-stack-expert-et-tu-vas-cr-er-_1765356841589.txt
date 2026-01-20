@@ -1,0 +1,527 @@
+Tu es un développeur full-stack expert et tu vas créer une application SaaS multi-tenant appelée **"CivisBox"**, conçue pour les **mairies / communes**.
+
+Objectif :  
+CivisBox est une plateforme en ligne qui propose :
+1) Une **landing page SaaS** pour présenter l’offre aux communes  
+2) Une **inscription / demande d’informations** pour les communes  
+3) Pour chaque commune inscrite (tenant) :
+   - Une **landing publique "citoyenne"** dédiée à la commune pour expliquer l’outil et rediriger vers les services
+   - Une **boîte à idées citoyenne** (propositions, votes, suivi de statut)
+   - Un **outil de signalement d’incidents** (trous dans la route, lampadaire en panne, etc.)
+   - Un module **Réunions élus/citoyens** :
+     - calendrier de réunions
+     - liste d’idées débattues à chaque réunion
+     - inscription des citoyens aux réunions
+
+L’application est **multi-tenant** : plusieurs communes utilisent la même app, chacune avec ses données isolées.
+
+### 🧱 STACK TECHNIQUE
+
+- Backend : Node.js + Express
+- ORM : Prisma
+- Base de données : SQLite pour le MVP (facilement migrable vers Postgres ensuite)
+- Templates : EJS (rendu côté serveur)
+- Static : CSS simple dans `/public`
+- Authentification : `express-session` + bcrypt pour les admins des communes
+- Architecture monolithique simple, prête à tourner sur Replit.
+
+---
+
+## 1. Modélisation des données (Prisma)
+
+Crée un fichier `prisma/schema.prisma` avec les modèles suivants (à écrire correctement en syntaxe Prisma) :
+
+### 1.1. Tenants & utilisateurs
+
+- **Tenant** (une commune / structure)
+  - id            String   @id @default(cuid())
+  - name          String         // "Puiseux-en-France"
+  - slug          String @unique // "puiseux-en-france"
+  - contactEmail  String?
+  - contactName   String?
+  - subscriptionPlan   String    // "FREE_TRIAL", "STANDARD", "PREMIUM"
+  - billingStatus      String    // "TRIAL", "ACTIVE", "SUSPENDED", "CANCELLED"
+  - trialEndsAt        DateTime?
+  - createdAt     DateTime @default(now())
+  - updatedAt     DateTime @updatedAt
+  - users         User[]
+  - ideas         Idea[]
+  - incidents     Incident[]
+  - meetings      Meeting[]
+
+- **User** (admin / modérateur de la commune)
+  - id            String   @id @default(cuid())
+  - tenantId      String
+  - tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  - name          String
+  - email         String   @unique
+  - passwordHash  String
+  - role          UserRole // enum: "ADMIN", "MODERATOR"
+  - createdAt     DateTime @default(now())
+
+- **UserRole** (enum Prisma)
+  - ADMIN
+  - MODERATOR
+
+---
+
+### 1.2. Leads / demandes d’infos (pour la landing SaaS globale)
+
+- **Lead**
+  - id            String   @id @default(cuid())
+  - organisationName String
+  - contactName   String
+  - email         String
+  - phone         String?
+  - message       String?
+  - createdAt     DateTime @default(now())
+  - status        String   // "NEW", "CONTACTED", "CONVERTED", "IGNORED"
+
+---
+
+### 1.3. Boîte à idées
+
+- **Idea**
+  - id            String   @id @default(cuid())
+  - tenantId      String
+  - tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  - title         String
+  - description   String
+  - category      String
+  - status        IdeaStatus // "NEW", "UNDER_REVIEW", "IN_PROGRESS", "DONE", "REJECTED"
+  - createdByEmail String?
+  - publicToken    String  @unique
+  - votesCount     Int     @default(0)
+  - createdAt      DateTime @default(now())
+  - updatedAt      DateTime @updatedAt
+  - votes          IdeaVote[]
+  - meetings       MeetingIdea[]
+
+- **IdeaStatus** (enum)
+  - NEW
+  - UNDER_REVIEW
+  - IN_PROGRESS
+  - DONE
+  - REJECTED
+
+- **IdeaVote**
+  - id        String   @id @default(cuid())
+  - ideaId    String
+  - idea      Idea     @relation(fields: [ideaId], references: [id])
+  - voterIp   String?
+  - voterEmail String?
+  - createdAt DateTime @default(now())
+
+---
+
+### 1.4. Incidents
+
+- **Incident**
+  - id            String   @id @default(cuid())
+  - tenantId      String
+  - tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  - title         String
+  - description   String
+  - category      String   // "voirie", "éclairage", "propreté", "sécurité", "autre"
+  - status        IncidentStatus // "NEW", "ACKNOWLEDGED", "IN_PROGRESS", "RESOLVED", "REJECTED"
+  - locationText  String
+  - createdByEmail String?
+  - publicToken   String @unique
+  - createdAt     DateTime @default(now())
+  - updatedAt     DateTime @updatedAt
+
+- **IncidentStatus** (enum)
+  - NEW
+  - ACKNOWLEDGED
+  - IN_PROGRESS
+  - RESOLVED
+  - REJECTED
+
+---
+
+### 1.5. Réunions élus / citoyens
+
+- **Meeting** (réunion publique / conseil participatif)
+  - id            String   @id @default(cuid())
+  - tenantId      String
+  - tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  - title         String       // "Réunion de quartier centre-ville"
+  - description   String?
+  - dateTime      DateTime     // date + heure
+  - location      String       // lieu de la réunion
+  - status        MeetingStatus // "SCHEDULED", "COMPLETED", "CANCELLED"
+  - capacity      Int?         // nombre max de participants (optionnel)
+  - createdAt     DateTime @default(now())
+  - updatedAt     DateTime @updatedAt
+  - ideas         MeetingIdea[]
+  - registrations MeetingRegistration[]
+
+- **MeetingStatus** (enum)
+  - SCHEDULED
+  - COMPLETED
+  - CANCELLED
+
+- **MeetingIdea** (table de liaison réunion ↔ idées débattues)
+  - id        String   @id @default(cuid())
+  - meetingId String
+  - ideaId    String
+  - meeting   Meeting @relation(fields: [meetingId], references: [id])
+  - idea      Idea    @relation(fields: [ideaId], references: [id])
+
+- **MeetingRegistration** (inscription d’un citoyen à une réunion)
+  - id         String   @id @default(cuid())
+  - meetingId  String
+  - meeting    Meeting  @relation(fields: [meetingId], references: [id])
+  - fullName   String
+  - email      String
+  - comment    String?
+  - createdAt  DateTime @default(now())
+
+---
+
+## 2. Multi-tenant : logique
+
+Comme précédemment, utiliser un middleware basé sur le `tenantSlug` dans l’URL :
+
+- Toutes les routes "commune" seront préfixées par :
+
+  - `/t/:tenantSlug/...`
+
+Créer un middleware :
+
+- `loadTenantFromSlug` :
+  - cherche en base le `Tenant` via `slug = req.params.tenantSlug`
+  - si trouvé → `req.tenant = tenant`
+  - sinon → 404
+
+Toutes les requêtes Prisma liées à Idea, Incident, Meeting, etc. doivent **toujours filtrer par `tenantId = req.tenant.id`**.
+
+---
+
+## 3. Authentification ADMIN par commune
+
+- Utiliser `express-session` pour stocker l’`userId` et `tenantId`.
+- Créer un seed :
+  - Tenant de test `"Puiseux-en-France"` slug `"puiseux-en-france"`
+  - User admin : `admin@puiseux.fr` / mot de passe `"admin123"` (hashé avec bcrypt).
+- Routes admin :
+  - `GET  /t/:tenantSlug/admin/login`
+  - `POST /t/:tenantSlug/admin/login`
+  - `POST /t/:tenantSlug/admin/logout`
+
+Middleware : `requireAdmin` :
+
+- Vérifie :
+  - `req.session.user` présent
+  - `req.session.user.tenantId === req.tenant.id`
+- Sinon → rediriger vers la page de login admin.
+
+---
+
+## 4. Landing SaaS globale (pour toutes les communes)
+
+Ces routes ne sont pas multi-tenant, elles sont au niveau racine de l’app :
+
+1. `GET /`
+   - Page d’accueil de CivisBox :
+     - Explication courte de la solution
+     - Section “Comment ça marche ?”
+     - CTA "Découvrir les tarifs" + "Demander une démo"
+
+2. `GET /pricing`
+   - Présenter 2 ou 3 plans :
+     - "Essai gratuit" (15 jours)
+     - "Standard"
+     - "Premium"
+   - Ce n’est que de l’affichage, pas d’intégration de paiement réelle pour le MVP (mais prévoir dans le modèle `subscriptionPlan` et `billingStatus`).
+
+3. `GET /contact`
+   - Formulaire pour les communes :
+     - Nom de la commune / structure
+     - Nom du contact
+     - Email
+     - Téléphone (optionnel)
+     - Message
+
+4. `POST /contact`
+   - Créer un `Lead` en base
+   - Afficher une page de remerciement
+   - Faire un `console.log` comme si on notifie l’équipe commerciale.
+
+5. `GET /signup`
+   - Formulaire pour créer un compte de test (essai gratuit) pour une commune :
+     - Nom de la commune
+     - Slug souhaité (pré-rempli à partir du nom)
+     - Email de l’admin
+     - Nom de l’admin
+     - Mot de passe
+
+6. `POST /signup`
+   - Crée :
+     - un `Tenant` avec :
+       - `subscriptionPlan = "FREE_TRIAL"`
+       - `billingStatus = "TRIAL"`
+       - `trialEndsAt = now() + 15 jours` (par exemple)
+     - un `User` admin lié à ce tenant
+   - Redirige vers : `/t/:tenantSlug/admin/login` avec un message de succès.
+   - Pas d’intégration Stripe dans ce MVP, mais le modèle `Tenant` prépare la suite.
+
+---
+
+## 5. Landing citoyenne par commune
+
+Chaque commune a une **landing publique** pour expliquer l’outil à ses habitants :
+
+1. `GET /t/:tenantSlug`
+   - Page de présentation citoyenne pour **ce tenant** :
+     - Nom de la commune (`req.tenant.name`)
+     - Texte marketing : “Votre ville vous donne la parole”
+     - 3 grandes sections avec boutons :
+       - “Proposer une idée” → lien vers `/t/:tenantSlug/ideas`
+       - “Signaler un problème” → lien vers `/t/:tenantSlug/incidents`
+       - “Participer aux réunions” → lien vers `/t/:tenantSlug/meetings`
+   - C’est la page que la mairie pourra diffuser sur son site / réseaux.
+
+---
+
+## 6. Boîte à idées citoyenne (public + admin)
+
+### 6.1. Côté citoyens (public)
+
+1. `GET /t/:tenantSlug/ideas`
+   - Liste des idées de la commune
+   - Filtres par `status` (`?status=...`) et `category`
+   - Affiche : titre, catégorie, statut (badge couleur), nombre de votes.
+
+2. `GET /t/:tenantSlug/ideas/new`
+   - Formulaire :
+     - titre (obligatoire)
+     - description (obligatoire)
+     - catégorie (liste déroulante ou champ texte)
+     - email (optionnel)
+
+3. `POST /t/:tenantSlug/ideas`
+   - Crée une nouvelle `Idea` :
+     - `tenantId = req.tenant.id`
+     - `status = "NEW"`
+     - `votesCount = 0`
+     - `publicToken` généré
+   - Si email fourni → stocker dans `createdByEmail`
+   - Affiche une page de confirmation avec lien de suivi :
+     - `/t/:tenantSlug/ideas/track/:publicToken`
+
+4. `GET /t/:tenantSlug/ideas/track/:publicToken`
+   - Page de suivi :
+     - Titre, description, catégorie, statut
+     - Explication de la signification du statut
+
+5. `POST /t/:tenantSlug/ideas/:id/vote`
+   - Ajoute un `IdeaVote` (limiter un vote par IP pour simplifier : vérifier s’il existe déjà un vote pour cette idée avec `voterIp = req.ip`)
+   - Incrémente `votesCount`
+   - Redirige vers la liste avec un message.
+
+### 6.2. Côté admin (commune)
+
+1. `GET /t/:tenantSlug/admin/ideas`
+   - Tableau des idées :
+     - colonnes : titre, catégorie, statut, votes, date, email
+     - filtres par statut
+
+2. `GET /t/:tenantSlug/admin/ideas/:id`
+   - Détail :
+     - infos complètes
+     - liste des réunions où l’idée est débattue (via `MeetingIdea`)
+   - Formulaire pour modifier :
+     - `status` (sélecteur)
+   - Bouton pour ajouter / retirer l’idée d’une réunion (associer à un `Meeting` existant).
+
+3. `POST /t/:tenantSlug/admin/ideas/:id/status`
+   - Met à jour le statut.
+   - `updatedAt` mis à jour.
+   - Si `createdByEmail` existe → faire un `console.log` qui simule l’envoi d’un email d’info au citoyen.
+
+---
+
+## 7. Signalements d’incidents
+
+### 7.1. Côté citoyens
+
+1. `GET /t/:tenantSlug/incidents`
+   - Liste des incidents signalés
+   - Filtres :
+     - `status`
+     - `category`
+   - Affiche : titre, lieu, statut, date.
+
+2. `GET /t/:tenantSlug/incidents/new`
+   - Formulaire :
+     - titre
+     - description
+     - catégorie (voirie, éclairage, propreté, sécurité, autre)
+     - localisation texte (obligatoire)
+     - email (optionnel)
+
+3. `POST /t/:tenantSlug/incidents`
+   - Crée un `Incident` :
+     - `status = "NEW"`
+     - `publicToken` généré
+   - Page de confirmation avec lien :
+     - `/t/:tenantSlug/incidents/track/:publicToken`
+
+4. `GET /t/:tenantSlug/incidents/track/:publicToken`
+   - Détailler le signalement + statut.
+
+### 7.2. Côté admin
+
+1. `GET /t/:tenantSlug/admin/incidents`
+   - Tableau avec filtres par statut.
+
+2. `GET /t/:tenantSlug/admin/incidents/:id`
+   - Détail + formulaire pour changer `status`.
+
+3. `POST /t/:tenantSlug/admin/incidents/:id/status`
+   - Met à jour le statut
+   - Si `createdByEmail` non nul → `console.log` pour simuler Notification.
+
+---
+
+## 8. Réunions élus / citoyens
+
+### 8.1. Côté citoyens
+
+1. `GET /t/:tenantSlug/meetings`
+   - Liste des réunions à venir (`status = "SCHEDULED"`, `dateTime >= now()`), triées par date.
+   - Possibilité d’afficher les réunions passées sur une autre section.
+
+2. `GET /t/:tenantSlug/meetings/:id`
+   - Détail de la réunion :
+     - titre, description, date/heure, lieu, statut
+     - nombre max de participants (si `capacity` non nul) + nombre actuel d’inscrits
+     - liste des idées liées (en lecture seule) via `MeetingIdea` :
+       - titre de l’idée + lien vers sa page de suivi public
+   - Formulaire d’inscription :
+     - Nom complet
+     - Email
+     - Commentaire (optionnel)
+   - Si la capacité est atteinte (`registrations.length >= capacity`) :
+     - Désactiver l’inscription et afficher un message.
+
+3. `POST /t/:tenantSlug/meetings/:id/register`
+   - Vérifier :
+     - `meeting.tenantId === req.tenant.id`
+     - `meeting.status === "SCHEDULED"`
+     - capacité non dépassée si `capacity` défini
+   - Créer un `MeetingRegistration`
+   - Afficher un message de confirmation (simuler un mail avec `console.log`).
+
+### 8.2. Côté admin
+
+1. `GET /t/:tenantSlug/admin/meetings`
+   - Liste des réunions :
+     - titre, date, lieu, statut, nombre d’inscrits
+
+2. `GET /t/:tenantSlug/admin/meetings/new`
+   - Formulaire :
+     - titre
+     - description
+     - date + heure
+     - lieu
+     - statut (par défaut `SCHEDULED`)
+     - capacité (optionnelle)
+
+3. `POST /t/:tenantSlug/admin/meetings`
+   - Créer la réunion.
+
+4. `GET /t/:tenantSlug/admin/meetings/:id`
+   - Détail de la réunion
+   - Liste des inscrits (nom, email, commentaire)
+   - Interface pour :
+     - changer `status` (SCHEDULED → COMPLETED ou CANCELLED)
+     - lier/délier des idées :
+       - afficher la liste des idées `Idea` du tenant, avec cases à cocher, pour créer ou supprimer des `MeetingIdea`.
+
+5. `POST /t/:tenantSlug/admin/meetings/:id/status`
+   - Met à jour le statut
+   - Option : simuler l’envoi d’email aux inscrits via `console.log`.
+
+---
+
+## 9. Templates EJS
+
+Créer les templates EJS simples dans un dossier `views/` :
+
+- `layouts/layout.ejs` : layout global avec header, nav, footer.
+- Pages SaaS :
+  - `home.ejs`        (pour `/`)
+  - `pricing.ejs`     (pour `/pricing`)
+  - `contact.ejs`     (formulaire de contact)
+  - `contact-success.ejs`
+  - `signup.ejs`      (inscription d’un nouveau tenant)
+  - `signup-success.ejs`
+
+- Pages communes (citoyens) :
+  - `tenant/landing.ejs`     (pour `/t/:tenantSlug`)
+  - `ideas/list.ejs`
+  - `ideas/new.ejs`
+  - `ideas/track.ejs`
+  - `incidents/list.ejs`
+  - `incidents/new.ejs`
+  - `incidents/track.ejs`
+  - `meetings/list.ejs`
+  - `meetings/detail.ejs`
+
+- Pages admin :
+  - `admin/login.ejs`
+  - `admin/dashboard.ejs` (vue globale simple : nb d’idées, incidents, réunions)
+  - `admin/ideas/list.ejs`
+  - `admin/ideas/detail.ejs`
+  - `admin/incidents/list.ejs`
+  - `admin/incidents/detail.ejs`
+  - `admin/meetings/list.ejs`
+  - `admin/meetings/new.ejs`
+  - `admin/meetings/detail.ejs`
+
+Style :
+- Un fichier `public/styles.css` avec un design sobre (layout centré, cartes, badges de statuts avec couleurs différentes).
+
+---
+
+## 10. Fichier principal serveur
+
+Créer un `index.js` ou `server.js` qui :
+
+- Initialise Express
+- Configure :
+  - EJS (`app.set('view engine', 'ejs')`)
+  - `express.static('public')`
+  - `express-session`
+  - PrismaClient
+  - middlewares `loadTenantFromSlug`, `requireAdmin`
+- Monte les routes :
+  - SaaS global (`/`, `/pricing`, `/contact`, `/signup`)
+  - Communes publiques (`/t/:tenantSlug/...`)
+  - Communes admin (`/t/:tenantSlug/admin/...`)
+
+Prévoir un script `npm start` dans `package.json`.
+
+---
+
+## 11. Seed
+
+Créer `prisma/seed.js` :
+
+- Crée un tenant de test `"Puiseux-en-France"` (`slug: "puiseux-en-france"`) avec :
+  - `subscriptionPlan = "FREE_TRIAL"`
+  - `billingStatus = "TRIAL"`
+  - `trialEndsAt = now() + 15 jours`
+- Crée un admin :
+  - email : `admin@puiseux.fr`
+  - mot de passe : `"admin123"` (hashé)
+- Quelques données de test :
+  - 2–3 idées
+  - 2–3 incidents
+  - 1–2 réunions
+
+---
+
+But : générer le code complet, structuré et commenté, **prêt à être exécuté sur Replit** en suivant strictement ces spécifications.

@@ -1,0 +1,75 @@
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « midi ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « navigation-override ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « oversized-images ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « payment ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « picture-in-picture ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « publickey-credentials ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « sync-xhr ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « unoptimized-images ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « unsized-media ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « usb ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « xr-spatial-tracking ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « clipboard-read ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « clipboard-write ». workspace_iframe.html
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « accelerometer ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « ambient-light-sensor ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « autoplay ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « battery ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « encrypted-media ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « execution-while-not-rendered ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « execution-while-out-of-viewport ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « gyroscope ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « layout-animations ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « legacy-image-formats ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « magnetometer ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « midi ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « navigation-override ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « oversized-images ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « payment ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « picture-in-picture ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « publickey-credentials ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « sync-xhr ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « unoptimized-images ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « unsized-media ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « usb ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « xr-spatial-tracking ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « clipboard-read ». workspace_iframe.html:151:20
+Feature Policy : nom de fonctionnalité non prise en charge ignoré « clipboard-write ». workspace_iframe.html:151:20
+Un accès partitionné à un cookie ou au stockage a été fourni à « <URL> » car il est chargé dans le contexte tiers et le partitionnement d’état dynamique est activé. 3
+[vite] connecting... client:495:9
+[vite] connected. client:618:15
+Avertissements de cookies 2
+Un accès partitionné à un cookie ou au stockage a été fourni à « https://f5c4948a-6bd4-4dcb-8f2a-be466182c520-00-1d1awf3glucg3.janeway.replit.dev/__replco/workspace_iframe.html?initialPath=%2F&id=%3Ar20g%3A » car il est chargé dans le contexte tiers et le partitionnement d’état dynamique est activé.
+workspace_iframe.html:92:32
+Un accès partitionné à un cookie ou au stockage a été fourni à « https://m.stripe.network/inner.html#url=https%3A%2F%2Ff5c4948a-6bd4-4dcb-8f2a-be466182c520-00-1d1awf3glucg3.janeway.replit.dev%2F&title=&referrer=https%3A%2F%2Ff5c4948a-6bd4-4dcb-8f2a-be466182c520-00-1d1awf3glucg3.janeway.replit.dev%2F__replco%2Fworkspace_iframe.html%3FinitialPath%3D%252F%26id%3D%253Ar20g%253A&muid=NA&sid=NA&version=6&preview=false&__shared_params__[version]=clover » car il est chargé dans le contexte tiers et le partitionnement d’état dynamique est activé.
+out-4.5.45.js:1:39660
+Le cookie « m » sera bientôt rejeté car il est étranger et ne possède pas l’attribut « Partitioned ». 6
+Le cookie « __stripe_mid » a été rejeté car il se trouve dans un contexte intersite et sa valeur « SameSite » est « Lax » ou « Strict ». f5c4948a-6bd4-4dcb-8f2a-be466182c520-00-1d1awf3glucg3.janeway.replit.dev
+Le cookie « __stripe_sid » a été rejeté car il se trouve dans un contexte intersite et sa valeur « SameSite » est « Lax » ou « Strict ». f5c4948a-6bd4-4dcb-8f2a-be466182c520-00-1d1awf3glucg3.janeway.replit.dev
+Service Worker registered f5c4948a-6bd4-4dcb-8f2a-be466182c520-00-1d1awf3glucg3.janeway.replit.dev:148:36
+Erreur dans les liens source : Error: request failed with status 404
+Stack in the worker:networkRequest@resource://devtools/client/shared/source-map-loader/utils/network-request.js:43:9
+
+URL de la ressource : https://cdn.replit.com/_next/static/chunks/0ec701c2e0eeb130.css
+URL du lien source : 78606e8433755090.css.map
+
+Erreur dans les liens source : Error: request failed with status 404
+Stack in the worker:networkRequest@resource://devtools/client/shared/source-map-loader/utils/network-request.js:43:9
+
+URL de la ressource : https://cdn.replit.com/_next/static/chunks/50bbdd36633637d5.css
+URL du lien source : 162aafd8a5349c32.css.map
+
+Erreur dans les liens source : Error: request failed with status 404
+Stack in the worker:networkRequest@resource://devtools/client/shared/source-map-loader/utils/network-request.js:43:9
+
+URL de la ressource : https://cdn.replit.com/_next/static/chunks/5b6c87abf3577794.css
+URL du lien source : 107b21e1e1a5ba33.css.map
+
+Erreur dans les liens source : Error: request failed with status 404
+Stack in the worker:networkRequest@resource://devtools/client/shared/source-map-loader/utils/network-request.js:43:9
+
+URL de la ressource : https://cdn.replit.com/_next/static/chunks/a353f0efb61cfe2d.css
+URL du lien source : f649cada72fc7051.css.map
+
+​
+
