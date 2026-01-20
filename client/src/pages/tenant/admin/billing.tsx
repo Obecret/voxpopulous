@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/layout/admin-layout";
@@ -371,26 +371,37 @@ export default function AdminBilling() {
     mandateChorusProEngagementNumber: "",
   });
 
+  // Initialize selectedInterval from billing summary when it loads
+  const [intervalInitialized, setIntervalInitialized] = useState(false);
+  useEffect(() => {
+    if (billingSummary?.billingInterval && !intervalInitialized) {
+      setSelectedInterval(billingSummary.billingInterval);
+      setIntervalInitialized(true);
+    }
+  }, [billingSummary?.billingInterval, intervalInitialized]);
+
   // Update form data when mandate billing info loads
   const [mandateFormInitialized, setMandateFormInitialized] = useState(false);
-  if (mandateBillingInfo && !mandateFormInitialized) {
-    setMandateFormData({
-      mandateBillingAddress: mandateBillingInfo.mandateBillingAddress || "",
-      mandateBillingService: mandateBillingInfo.mandateBillingService || "",
-      mandateAccountingContactName: mandateBillingInfo.mandateAccountingContactName || "",
-      mandateAccountingContactEmail: mandateBillingInfo.mandateAccountingContactEmail || "",
-      mandateAccountingContactPhone: mandateBillingInfo.mandateAccountingContactPhone || "",
-      mandateServiceCode: mandateBillingInfo.mandateServiceCode || "",
-      mandateEngagementNumber: mandateBillingInfo.mandateEngagementNumber || "",
-      mandatePurchaseOrderNumber: mandateBillingInfo.mandatePurchaseOrderNumber || "",
-      mandateUseChorusPro: mandateBillingInfo.mandateUseChorusPro || false,
-      mandateChorusProSiret: mandateBillingInfo.mandateChorusProSiret || "",
-      mandateChorusProServiceCode: mandateBillingInfo.mandateChorusProServiceCode || "",
-      mandateChorusProServiceLabel: mandateBillingInfo.mandateChorusProServiceLabel || "",
-      mandateChorusProEngagementNumber: mandateBillingInfo.mandateChorusProEngagementNumber || "",
-    });
-    setMandateFormInitialized(true);
-  }
+  useEffect(() => {
+    if (mandateBillingInfo && !mandateFormInitialized) {
+      setMandateFormData({
+        mandateBillingAddress: mandateBillingInfo.mandateBillingAddress || "",
+        mandateBillingService: mandateBillingInfo.mandateBillingService || "",
+        mandateAccountingContactName: mandateBillingInfo.mandateAccountingContactName || "",
+        mandateAccountingContactEmail: mandateBillingInfo.mandateAccountingContactEmail || "",
+        mandateAccountingContactPhone: mandateBillingInfo.mandateAccountingContactPhone || "",
+        mandateServiceCode: mandateBillingInfo.mandateServiceCode || "",
+        mandateEngagementNumber: mandateBillingInfo.mandateEngagementNumber || "",
+        mandatePurchaseOrderNumber: mandateBillingInfo.mandatePurchaseOrderNumber || "",
+        mandateUseChorusPro: mandateBillingInfo.mandateUseChorusPro || false,
+        mandateChorusProSiret: mandateBillingInfo.mandateChorusProSiret || "",
+        mandateChorusProServiceCode: mandateBillingInfo.mandateChorusProServiceCode || "",
+        mandateChorusProServiceLabel: mandateBillingInfo.mandateChorusProServiceLabel || "",
+        mandateChorusProEngagementNumber: mandateBillingInfo.mandateChorusProEngagementNumber || "",
+      });
+      setMandateFormInitialized(true);
+    }
+  }, [mandateBillingInfo, mandateFormInitialized]);
 
   const updateMandateBillingMutation = useMutation({
     mutationFn: async (data: typeof mandateFormData) => {
@@ -1519,7 +1530,95 @@ export default function AdminBilling() {
           </TabsContent>
 
           <TabsContent value="plans">
-            <h2 className="text-xl font-semibold mb-4">Choisir un forfait</h2>
+            <div className="mb-6 space-y-4">
+              <h2 className="text-xl font-semibold">Choisir un forfait</h2>
+              
+              {/* Current payment method and billing info card */}
+              <Card className="border-2 border-primary/20 bg-primary/5">
+                <CardContent className="py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        {billingSummary?.preferences?.preferredPaymentMethod === "ADMINISTRATIVE_MANDATE" ? (
+                          <>
+                            <Building2 className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="font-medium" data-testid="text-payment-method-display">Mandat administratif</p>
+                              <p className="text-xs text-muted-foreground">Devis + bon de commande + virement</p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="font-medium" data-testid="text-payment-method-display">Carte bancaire (Stripe)</p>
+                              <p className="text-xs text-muted-foreground">Paiement automatique</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      
+                      {billingSummary?.plan && (
+                        <div className="hidden sm:block border-l pl-4 ml-2">
+                          <p className="text-sm text-muted-foreground">Forfait actuel</p>
+                          <p className="font-medium" data-testid="text-current-plan-display">{billingSummary.plan.name}</p>
+                        </div>
+                      )}
+                      
+                      {billingSummary?.billingInterval && (
+                        <div className="hidden sm:block border-l pl-4 ml-2">
+                          <p className="text-sm text-muted-foreground">Cycle actuel</p>
+                          <Badge variant={billingSummary.billingInterval === "YEARLY" ? "default" : "secondary"} data-testid="badge-billing-interval">
+                            {billingSummary.billingInterval === "YEARLY" ? "Annuel" : "Mensuel"}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Billing interval toggle */}
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center bg-muted/50 rounded-lg p-1 gap-1">
+                        <Button
+                          variant={selectedInterval === "MONTHLY" ? "default" : "ghost"}
+                          onClick={() => setSelectedInterval("MONTHLY")}
+                          data-testid="button-interval-monthly"
+                        >
+                          Mensuel
+                        </Button>
+                        <Button
+                          variant={selectedInterval === "YEARLY" ? "default" : "ghost"}
+                          onClick={() => setSelectedInterval("YEARLY")}
+                          data-testid="button-interval-yearly"
+                        >
+                          Annuel
+                        </Button>
+                      </div>
+                      {selectedInterval === "YEARLY" && (
+                        <Badge variant="secondary" className="text-xs whitespace-nowrap">2 mois offerts</Badge>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Mobile display of current plan info */}
+                  <div className="sm:hidden mt-3 pt-3 border-t flex flex-wrap gap-4">
+                    {billingSummary?.plan && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Forfait actuel</p>
+                        <p className="font-medium">{billingSummary.plan.name}</p>
+                      </div>
+                    )}
+                    {billingSummary?.billingInterval && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Cycle actuel</p>
+                        <Badge variant={billingSummary.billingInterval === "YEARLY" ? "default" : "secondary"}>
+                          {billingSummary.billingInterval === "YEARLY" ? "Annuel" : "Mensuel"}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
             
             {!plans?.length ? (
               <Card>
@@ -1559,11 +1658,23 @@ export default function AdminBilling() {
                     </CardHeader>
                     <CardContent>
                       <div className="mb-4">
-                        <span className="text-3xl font-bold">{formatPrice(plan.monthlyPrice || 0)}</span>
-                        <span className="text-muted-foreground"> EUR/mois</span>
-                        <p className="text-sm text-muted-foreground">
-                          ou {formatPrice(plan.yearlyPrice || 0)} EUR/an
-                        </p>
+                        {selectedInterval === "YEARLY" ? (
+                          <>
+                            <span className="text-3xl font-bold">{formatPrice(plan.yearlyPrice || 0)}</span>
+                            <span className="text-muted-foreground"> EUR/an</span>
+                            <p className="text-sm text-muted-foreground">
+                              soit {formatPrice((plan.yearlyPrice || 0) / 12)} EUR/mois
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-3xl font-bold">{formatPrice(plan.monthlyPrice || 0)}</span>
+                            <span className="text-muted-foreground"> EUR/mois</span>
+                            <p className="text-sm text-muted-foreground">
+                              ou {formatPrice(plan.yearlyPrice || 0)} EUR/an (economisez 2 mois)
+                            </p>
+                          </>
+                        )}
                       </div>
                       <ul className="space-y-2">
                         {plan.catalogFeatures?.map((cf) => (
@@ -1597,8 +1708,25 @@ export default function AdminBilling() {
                       </ul>
                     </CardContent>
                     <CardFooter className="flex flex-col gap-2">
-                      {billing?.subscriptionPlanId === plan.id ? (
+                      {billing?.subscriptionPlanId === plan.id && billingSummary?.billingInterval === selectedInterval ? (
                         <Badge variant="secondary" className="w-full justify-center py-2">Plan actuel</Badge>
+                      ) : billing?.subscriptionPlanId === plan.id ? (
+                        <div className="w-full">
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => {
+                              setSelectedPlanId(plan.id);
+                              setChangePlanOpen(true);
+                            }}
+                            data-testid={`button-change-interval-${plan.id}`}
+                          >
+                            Passer en {selectedInterval === "YEARLY" ? "annuel" : "mensuel"}
+                          </Button>
+                          <p className="text-xs text-muted-foreground text-center mt-1">
+                            Meme forfait, nouveau cycle
+                          </p>
+                        </div>
                       ) : stripeModeLoading ? (
                         <div className="w-full text-center text-sm text-muted-foreground">Chargement...</div>
                       ) : (() => {
@@ -1609,51 +1737,55 @@ export default function AdminBilling() {
                           ? !!plan.stripePriceIdYearlyLive 
                           : !!plan.stripePriceIdYearlyTest;
                         
-                        if (!hasMonthlyPrice && !hasYearlyPrice) {
+                        // For mandate payment method or if no Stripe prices configured
+                        if (billingSummary?.preferences?.preferredPaymentMethod === "ADMINISTRATIVE_MANDATE" || (!hasMonthlyPrice && !hasYearlyPrice)) {
                           return (
                             <div className="w-full">
                               <Button
-                                variant="outline"
+                                variant={plan.isBestValue ? "default" : "outline"}
                                 className="w-full mb-2"
                                 onClick={() => {
                                   setSelectedPlanId(plan.id);
-                                  setSelectedInterval("MONTHLY");
                                   setChangePlanOpen(true);
                                 }}
                                 data-testid={`button-schedule-plan-${plan.id}`}
                               >
-                                Programmer le changement
+                                Choisir ce forfait ({selectedInterval === "YEARLY" ? "annuel" : "mensuel"})
                               </Button>
                               <p className="text-xs text-muted-foreground text-center">
-                                Facturation par mandat administratif
+                                {billingSummary?.preferences?.preferredPaymentMethod === "ADMINISTRATIVE_MANDATE" 
+                                  ? "Facturation par mandat administratif"
+                                  : "Programmation du changement"}
                               </p>
                             </div>
                           );
                         }
                         
+                        // For Stripe payment
+                        const hasPriceForInterval = selectedInterval === "YEARLY" ? hasYearlyPrice : hasMonthlyPrice;
+                        
                         return (
-                          <div className="flex gap-2 flex-wrap w-full">
-                            {hasMonthlyPrice && (
-                              <Button
-                                onClick={() => checkoutMutation.mutate({ planId: plan.id, interval: 'monthly' })}
-                                disabled={checkoutMutation.isPending}
-                                variant={plan.isBestValue ? "default" : "outline"}
-                                className="flex-1"
-                                data-testid={`button-subscribe-${plan.id}-monthly`}
-                              >
-                                {checkoutMutation.isPending ? "Chargement..." : "Mensuel"}
-                              </Button>
-                            )}
-                            {hasYearlyPrice && (
-                              <Button
-                                onClick={() => checkoutMutation.mutate({ planId: plan.id, interval: 'yearly' })}
-                                disabled={checkoutMutation.isPending}
-                                variant="secondary"
-                                className="flex-1"
-                                data-testid={`button-subscribe-${plan.id}-yearly`}
-                              >
-                                {checkoutMutation.isPending ? "Chargement..." : "Annuel"}
-                              </Button>
+                          <div className="w-full">
+                            <Button
+                              onClick={() => checkoutMutation.mutate({ 
+                                planId: plan.id, 
+                                interval: selectedInterval === "YEARLY" ? 'yearly' : 'monthly' 
+                              })}
+                              disabled={checkoutMutation.isPending || !hasPriceForInterval}
+                              variant={plan.isBestValue ? "default" : "outline"}
+                              className="w-full"
+                              data-testid={`button-subscribe-${plan.id}-${selectedInterval.toLowerCase()}`}
+                            >
+                              {checkoutMutation.isPending 
+                                ? "Chargement..." 
+                                : hasPriceForInterval 
+                                  ? `Souscrire (${selectedInterval === "YEARLY" ? "annuel" : "mensuel"})`
+                                  : "Non disponible"}
+                            </Button>
+                            {!hasPriceForInterval && (
+                              <p className="text-xs text-muted-foreground text-center mt-1">
+                                Ce forfait n'est pas disponible en {selectedInterval === "YEARLY" ? "annuel" : "mensuel"}
+                              </p>
                             )}
                           </div>
                         );
@@ -2410,22 +2542,31 @@ export default function AdminBilling() {
         <Dialog open={changePlanOpen} onOpenChange={setChangePlanOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Programmer un changement de forfait</DialogTitle>
+              <DialogTitle>
+                {selectedPlanId === billing?.subscriptionPlanId 
+                  ? "Changer de cycle de facturation" 
+                  : "Programmer un changement de forfait"}
+              </DialogTitle>
               <DialogDescription>
-                Le changement sera effectif le 1er du mois prochain. Un prorata sera calcule automatiquement.
+                {selectedPlanId === billing?.subscriptionPlanId 
+                  ? `Passer de ${billingSummary?.billingInterval === "MONTHLY" ? "mensuel" : "annuel"} a ${selectedInterval === "MONTHLY" ? "mensuel" : "annuel"}.`
+                  : "Le changement sera effectif le 1er du mois prochain. Un prorata sera calcule automatiquement."}
               </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-2">
               <div className="space-y-2">
-                <Label>Nouveau forfait</Label>
+                <Label>Forfait</Label>
                 <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
                   <SelectTrigger data-testid="select-new-plan">
                     <SelectValue placeholder="Selectionnez un forfait" />
                   </SelectTrigger>
                   <SelectContent>
-                    {plans?.filter(p => !p.isFree && p.id !== billing?.subscriptionPlanId).map((plan) => (
+                    {plans?.filter(p => !p.isFree).map((plan) => (
                       <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name} - {formatPrice(plan.monthlyPrice || 0)} EUR/mois
+                        {plan.name} - {selectedInterval === "YEARLY" 
+                          ? `${formatPrice(plan.yearlyPrice || 0)} EUR/an`
+                          : `${formatPrice(plan.monthlyPrice || 0)} EUR/mois`}
+                        {plan.id === billing?.subscriptionPlanId && " (actuel)"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -2439,18 +2580,42 @@ export default function AdminBilling() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="MONTHLY">Mensuelle</SelectItem>
-                    <SelectItem value="YEARLY">Annuelle</SelectItem>
+                    <SelectItem value="YEARLY">Annuelle (-17%)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <DialogFooter>
+            
+            {/* Summary of change */}
+            {selectedPlanId && (
+              <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                <p className="font-medium mb-1">Recapitulatif</p>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Forfait:</span>
+                  <span>{plans?.find(p => p.id === selectedPlanId)?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cycle:</span>
+                  <span>{selectedInterval === "YEARLY" ? "Annuel" : "Mensuel"}</span>
+                </div>
+                <div className="flex justify-between font-medium pt-1 border-t mt-1">
+                  <span>Prix:</span>
+                  <span>
+                    {selectedInterval === "YEARLY" 
+                      ? `${formatPrice(plans?.find(p => p.id === selectedPlanId)?.yearlyPrice || 0)} EUR/an`
+                      : `${formatPrice(plans?.find(p => p.id === selectedPlanId)?.monthlyPrice || 0)} EUR/mois`}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setChangePlanOpen(false)}>
                 Annuler
               </Button>
               <Button 
                 onClick={() => changePlanMutation.mutate({ newPlanId: selectedPlanId, newBillingInterval: selectedInterval })}
-                disabled={!selectedPlanId || changePlanMutation.isPending}
+                disabled={!selectedPlanId || changePlanMutation.isPending || (selectedPlanId === billing?.subscriptionPlanId && selectedInterval === billingSummary?.billingInterval)}
                 data-testid="button-confirm-plan-change"
               >
                 {changePlanMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
