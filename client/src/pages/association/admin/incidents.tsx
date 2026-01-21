@@ -188,6 +188,7 @@ export default function AssociationAdminIncidents() {
                   onMarkerClick={(id) => {
                     const incident = filteredIncidents.find(i => i.id === id);
                     if (incident) {
+                      setViewMode("list");
                       setSelectedIncident(incident);
                       setNewStatus(incident.status);
                     }
