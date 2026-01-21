@@ -4,7 +4,8 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Lightbulb, AlertTriangle, Calendar, ArrowRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Lightbulb, AlertTriangle, Calendar, ArrowRight, Gift } from "lucide-react";
 import { useAdminSession } from "@/hooks/use-admin-session";
 
 interface DashboardStats {
@@ -172,6 +173,15 @@ export default function AdminDashboard() {
                   {tenant?.billingStatus?.toLowerCase()}
                 </span>
               </div>
+              {tenant?.isFree && (
+                <div className="flex justify-between items-center py-2 border-b">
+                  <span className="text-muted-foreground">Tarification</span>
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Gift className="h-3 w-3" />
+                    Gratuit
+                  </Badge>
+                </div>
+              )}
               {tenant?.trialEndsAt && (
                 <div className="flex justify-between items-center py-2">
                   <span className="text-muted-foreground">Fin de l'essai</span>
