@@ -13,8 +13,6 @@ import {
   Users,
   Building,
   Send,
-  Copy,
-  Check,
   LogIn,
   Pencil,
   Landmark,
@@ -114,8 +112,6 @@ export default function SuperadminTenantDetail() {
   const { toast } = useToast();
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<TenantAdmin | null>(null);
-  const [newPassword, setNewPassword] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [quantitiesDialogOpen, setQuantitiesDialogOpen] = useState(false);
   const [editQuantities, setEditQuantities] = useState({
     purchasedCommunes: 0,
@@ -192,34 +188,25 @@ export default function SuperadminTenantDetail() {
 
   const resetPasswordMutation = useMutation({
     mutationFn: async (adminId: string) => {
-      const res = await apiRequest("POST", `/api/superadmin/tenants/${id}/admins/${adminId}/reset-password`);
+      const res = await apiRequest("POST", `/api/superadmin/tenants/${id}/admins/${adminId}/send-reset-link`);
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: "Erreur inconnue" }));
-        throw new Error(error.message || "Erreur lors de la reinitialisation");
+        throw new Error(error.message || error.error || "Erreur lors de l'envoi du lien");
       }
       return res.json();
     },
-    onSuccess: (result) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/superadmin/tenants", id, "details"] });
-      if (result.emailSent) {
-        toast({
-          title: "Mot de passe reinitialise",
-          description: "Un email avec les nouveaux identifiants a ete envoye.",
-        });
-        setResetDialogOpen(false);
-      } else if (result.newPassword) {
-        setNewPassword(result.newPassword);
-        toast({
-          title: "Mot de passe reinitialise",
-          description: "L'email n'a pas pu etre envoye. Copiez le mot de passe ci-dessous.",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Lien envoye",
+        description: "Un email avec un lien de reinitialisation a ete envoye. L'utilisateur pourra definir lui-meme son nouveau mot de passe.",
+      });
+      setResetDialogOpen(false);
     },
     onError: (error: Error) => {
       toast({
         title: "Erreur",
-        description: error.message || "Impossible de reinitialiser le mot de passe.",
+        description: error.message || "Impossible d'envoyer le lien de reinitialisation.",
         variant: "destructive",
       });
     },
@@ -409,7 +396,6 @@ export default function SuperadminTenantDetail() {
 
   const handleResetPassword = (admin: TenantAdmin) => {
     setSelectedAdmin(admin);
-    setNewPassword(null);
     setResetDialogOpen(true);
   };
 
@@ -423,13 +409,6 @@ export default function SuperadminTenantDetail() {
     }
   };
 
-  const copyPassword = () => {
-    if (newPassword) {
-      navigator.clipboard.writeText(newPassword);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -829,45 +808,25 @@ export default function SuperadminTenantDetail() {
       <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reinitialiser le mot de passe</DialogTitle>
+            <DialogTitle>Envoyer un lien de reinitialisation</DialogTitle>
             <DialogDescription>
-              {newPassword ? (
-                "Le mot de passe a ete reinitialise. L'email n'a pas pu etre envoye, veuillez copier le mot de passe ci-dessous :"
-              ) : (
-                `Voulez-vous reinitialiser le mot de passe de ${selectedAdmin?.name} (${selectedAdmin?.email}) ? Un email sera envoye avec les nouveaux identifiants.`
-              )}
+              Un email sera envoye a {selectedAdmin?.email} avec un lien securise permettant a l'utilisateur de definir lui-meme son nouveau mot de passe. Ce lien sera valable pendant 1 heure.
             </DialogDescription>
           </DialogHeader>
-          
-          {newPassword && (
-            <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
-              <code className="flex-1 font-mono">{newPassword}</code>
-              <Button variant="outline" size="icon" onClick={copyPassword}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-          )}
 
           <DialogFooter>
-            {newPassword ? (
-              <Button onClick={() => setResetDialogOpen(false)}>
-                Fermer
-              </Button>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => setResetDialogOpen(false)}>
-                  Annuler
-                </Button>
-                <Button 
-                  onClick={confirmResetPassword}
-                  disabled={resetPasswordMutation.isPending}
-                  className="gap-2"
-                >
-                  <Send className="h-4 w-4" />
-                  {resetPasswordMutation.isPending ? "Envoi..." : "Reinitialiser et envoyer"}
-                </Button>
-              </>
-            )}
+            <Button variant="outline" onClick={() => setResetDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button 
+              onClick={confirmResetPassword}
+              disabled={resetPasswordMutation.isPending}
+              className="gap-2"
+              data-testid="button-confirm-send-reset-link"
+            >
+              <Send className="h-4 w-4" />
+              {resetPasswordMutation.isPending ? "Envoi..." : "Envoyer le lien"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

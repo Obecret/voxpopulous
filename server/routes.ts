@@ -1228,7 +1228,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  app.post("/api/superadmin/tenants/:tenantId/admins/:adminId/reset-password", async (req, res) => {
+  // Superadmin: Send password reset link to a specific admin
+  app.post("/api/superadmin/tenants/:tenantId/admins/:adminId/send-reset-link", async (req, res) => {
     if (!req.session.superadminId) {
       return res.status(401).json({ error: "Non authentifie" });
     }
@@ -1246,35 +1247,51 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ error: "Administrateur non trouve" });
       }
 
-      const generatePassword = (): string => {
-        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-        let password = "";
-        for (let i = 0; i < 12; i++) {
-          password += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return password;
-      };
+      // Create password reset token
+      const token = randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-      const newPassword = generatePassword();
-      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await storage.createPasswordResetToken({
+        token,
+        type: "ADMIN",
+        userId: admin.id,
+        electedOfficialId: undefined,
+        email: admin.email.toLowerCase(),
+        tenantId: tenant.id,
+        expiresAt
+      });
+
+      // Build reset URL
+      const baseUrl = 'https://voxpopulous.fr';
+      const resetUrl = `${baseUrl}/structures/${tenant.slug}/admin/reset-password?token=${token}`;
+
+      // Send email
+      const emailContent = `
+        <h2 style="color: #1e293b; margin: 0 0 24px 0; font-size: 24px;">Reinitialisation de votre mot de passe</h2>
+        <p style="color: #475569; line-height: 1.6; margin: 0 0 16px 0;">Bonjour ${admin.name || admin.email},</p>
+        <p style="color: #475569; line-height: 1.6; margin: 0 0 16px 0;">
+          L'administrateur de la plateforme VoxPopulous a demande la reinitialisation de votre mot de passe pour acceder a l'espace d'administration de <strong style="color: #1e293b;">${tenant.name}</strong>.
+        </p>
+        <p style="color: #475569; line-height: 1.6; margin: 0 0 24px 0;">Cliquez sur le bouton ci-dessous pour creer un nouveau mot de passe :</p>
+        <p style="text-align: center; margin: 0 0 24px 0;">
+          <a href="${resetUrl}" style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">
+            Reinitialiser mon mot de passe
+          </a>
+        </p>
+        <p style="color: #64748b; font-size: 14px; margin: 0 0 8px 0;">Ce lien est valable pendant 1 heure.</p>
+        <p style="color: #64748b; font-size: 14px; margin: 0;">Si vous n'avez pas demande cette reinitialisation, vous pouvez ignorer cet email.</p>
+      `;
       
-      await storage.updateUserPassword(adminId, passwordHash);
+      await sendEmail({
+        to: admin.email.toLowerCase(),
+        subject: "Reinitialisation de votre mot de passe - VoxPopulous",
+        html: wrapEmailContent(emailContent),
+      });
 
-      const emailSent = await sendPasswordResetEmail(
-        admin.email,
-        admin.name,
-        newPassword,
-        tenant.slug
-      );
-
-      if (emailSent) {
-        res.json({ success: true, emailSent: true });
-      } else {
-        res.json({ success: true, emailSent: false, newPassword });
-      }
+      res.json({ success: true, message: "Lien de reinitialisation envoye" });
     } catch (error) {
-      console.error("Password reset error:", error);
-      res.status(500).json({ error: "Erreur serveur" });
+      console.error("Password reset link error:", error);
+      res.status(500).json({ error: "Impossible d'envoyer l'email" });
     }
   });
 
