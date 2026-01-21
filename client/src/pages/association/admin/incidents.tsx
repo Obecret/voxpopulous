@@ -12,7 +12,9 @@ import { StatusBadge } from "@/components/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Filter, Eye, MapPin, Loader2, List, Map } from "lucide-react";
+import { Search, Filter, Eye, MapPin, Loader2, List, Map, Archive, ArchiveRestore } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { Association, AssociationUser, AssociationIncident } from "@shared/schema";
 import { INCIDENT_CATEGORIES } from "@shared/schema";
 import { LocationDisplay, MultiMarkerMap, INCIDENT_STATUS_COLORS } from "@/components/location-picker";
@@ -29,6 +31,7 @@ export default function AssociationAdminIncidents() {
   const [selectedIncident, setSelectedIncident] = useState<AssociationIncident | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data, isLoading: userLoading, error } = useQuery<{ user: SafeAssociationUser; association: Association }>({
     queryKey: ["/api/tenants", params.slug, "associations", params.assocSlug, "me"],
@@ -36,7 +39,12 @@ export default function AssociationAdminIncidents() {
   });
 
   const { data: incidents, isLoading: incidentsLoading } = useQuery<AssociationIncident[]>({
-    queryKey: ["/api/associations", data?.association?.id, "admin", "incidents"],
+    queryKey: ["/api/associations", data?.association?.id, "admin", "incidents", { showArchived }],
+    queryFn: async () => {
+      const response = await fetch(`/api/associations/${data?.association?.id}/admin/incidents?includeArchived=${showArchived}`);
+      if (!response.ok) throw new Error("Failed to fetch incidents");
+      return response.json();
+    },
     enabled: !!data?.association?.id,
   });
 
@@ -45,12 +53,48 @@ export default function AssociationAdminIncidents() {
       return apiRequest("PATCH", `/api/associations/${data?.association?.id}/admin/incidents/${incidentId}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "incidents"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/associations" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "incidents"
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "stats"] });
       setSelectedIncident(null);
       toast({
         title: "Statut mis a jour",
         description: "Le statut du signalement a ete modifie avec succes.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async ({ incidentId, isArchived }: { incidentId: string; isArchived: boolean }) => {
+      return apiRequest("POST", `/api/associations/${data?.association?.id}/admin/incidents/${incidentId}/archive`, { isArchived });
+    },
+    onSuccess: (_, { isArchived }) => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/associations" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "incidents"
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "stats"] });
+      setSelectedIncident(null);
+      toast({
+        title: isArchived ? "Signalement archive" : "Signalement restaure",
+        description: isArchived 
+          ? "Le signalement a ete archive avec succes." 
+          : "Le signalement a ete restaure avec succes.",
       });
     },
     onError: () => {
@@ -161,6 +205,17 @@ export default function AssociationAdminIncidents() {
                   <Map className="h-4 w-4" />
                 </Button>
               </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-archived"
+                  checked={showArchived}
+                  onCheckedChange={setShowArchived}
+                  data-testid="switch-show-archived"
+                />
+                <Label htmlFor="show-archived" className="text-sm whitespace-nowrap">
+                  Afficher archives
+                </Label>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -252,17 +307,33 @@ export default function AssociationAdminIncidents() {
                           {new Date(incident.createdAt).toLocaleDateString("fr-FR")}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedIncident(incident);
-                              setNewStatus(incident.status);
-                            }}
-                            data-testid={`button-view-incident-${incident.id}`}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedIncident(incident);
+                                setNewStatus(incident.status);
+                              }}
+                              data-testid={`button-view-incident-${incident.id}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => archiveMutation.mutate({ incidentId: incident.id, isArchived: !(incident as any).isArchived })}
+                              disabled={archiveMutation.isPending}
+                              title={(incident as any).isArchived ? "Restaurer" : "Archiver"}
+                              data-testid={`button-archive-${incident.id}`}
+                            >
+                              {(incident as any).isArchived ? (
+                                <ArchiveRestore className="h-4 w-4" />
+                              ) : (
+                                <Archive className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

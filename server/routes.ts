@@ -5621,7 +5621,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ error: "Permission denied" });
     }
 
-    const ideas = await storage.getIdeasByTenant(tenant.id);
+    const includeArchived = req.query.includeArchived === "true";
+    const ideas = await storage.getIdeasByTenant(tenant.id, includeArchived);
     res.json(ideas);
   });
 
@@ -5653,6 +5654,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .catch(err => console.error('Failed to send idea status email:', err));
     }
     
+    res.json(updated);
+  });
+
+  // Archive/unarchive idea
+  app.post("/api/tenants/:slug/admin/ideas/:ideaId/archive", async (req, res) => {
+    const tenant = await storage.getTenantBySlug(req.params.slug);
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+    
+    const auth = await checkAdminAuth(req, tenant.id, "IDEAS");
+    if (!auth.authenticated) {
+      return res.status(401).json({ error: auth.error || "Not authenticated" });
+    }
+    if (!auth.hasMenuAccess) {
+      return res.status(403).json({ error: "Permission denied" });
+    }
+
+    const idea = await storage.getIdeaById(req.params.ideaId);
+    if (!idea || idea.tenantId !== tenant.id) {
+      return res.status(404).json({ error: "Idea not found" });
+    }
+
+    const isArchived = req.body.isArchived !== undefined ? req.body.isArchived : true;
+    const updated = await storage.setIdeaArchived(idea.id, isArchived);
     res.json(updated);
   });
 
@@ -5731,7 +5757,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ error: "Permission denied" });
     }
 
-    const incidents = await storage.getIncidentsByTenant(tenant.id);
+    const includeArchived = req.query.includeArchived === "true";
+    const incidents = await storage.getIncidentsByTenant(tenant.id, includeArchived);
     res.json(incidents);
   });
 
@@ -5763,6 +5790,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .catch(err => console.error('Failed to send incident status email:', err));
     }
     
+    res.json(updated);
+  });
+
+  // Archive/unarchive incident
+  app.post("/api/tenants/:slug/admin/incidents/:incidentId/archive", async (req, res) => {
+    const tenant = await storage.getTenantBySlug(req.params.slug);
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+    
+    const auth = await checkAdminAuth(req, tenant.id, "INCIDENTS");
+    if (!auth.authenticated) {
+      return res.status(401).json({ error: auth.error || "Not authenticated" });
+    }
+    if (!auth.hasMenuAccess) {
+      return res.status(403).json({ error: "Permission denied" });
+    }
+
+    const incident = await storage.getIncidentById(req.params.incidentId);
+    if (!incident || incident.tenantId !== tenant.id) {
+      return res.status(404).json({ error: "Incident not found" });
+    }
+
+    const isArchived = req.body.isArchived !== undefined ? req.body.isArchived : true;
+    const updated = await storage.setIncidentArchived(incident.id, isArchived);
     res.json(updated);
   });
 
@@ -5882,7 +5934,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ error: "Permission denied" });
     }
 
-    const meetings = await storage.getMeetingsByTenant(tenant.id);
+    const includeArchived = req.query.includeArchived === "true";
+    const meetings = await storage.getMeetingsByTenant(tenant.id, includeArchived);
     res.json(meetings);
   });
 
@@ -5961,6 +6014,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
 
     const updated = await storage.updateMeetingStatus(meeting.id, req.body.status);
+    res.json(updated);
+  });
+
+  // Archive/unarchive meeting
+  app.post("/api/tenants/:slug/admin/meetings/:meetingId/archive", async (req, res) => {
+    const tenant = await storage.getTenantBySlug(req.params.slug);
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+    
+    const auth = await checkAdminAuth(req, tenant.id, "MEETINGS");
+    if (!auth.authenticated) {
+      return res.status(401).json({ error: auth.error || "Not authenticated" });
+    }
+    if (!auth.hasMenuAccess) {
+      return res.status(403).json({ error: "Permission denied" });
+    }
+
+    const meeting = await storage.getMeetingById(req.params.meetingId);
+    if (!meeting || meeting.tenantId !== tenant.id) {
+      return res.status(404).json({ error: "Meeting not found" });
+    }
+
+    const isArchived = req.body.isArchived !== undefined ? req.body.isArchived : true;
+    const updated = await storage.setMeetingArchived(meeting.id, isArchived);
     res.json(updated);
   });
 
@@ -9084,7 +9162,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ error: "Acces refuse" });
     }
     try {
-      const ideas = await storage.getAssociationIdeas(req.params.associationId);
+      const includeArchived = req.query.includeArchived === "true";
+      const ideas = await storage.getAssociationIdeas(req.params.associationId, includeArchived);
       res.json(ideas);
     } catch (error) {
       console.error("Association ideas list error:", error);
@@ -9130,6 +9209,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(updated);
     } catch (error) {
       console.error("Association idea status update error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Association Admin: Archive/unarchive idea
+  app.post("/api/associations/:associationId/admin/ideas/:id/archive", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const idea = await storage.getAssociationIdeaById(req.params.id);
+      if (!idea || idea.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Idee non trouvee" });
+      }
+      const isArchived = req.body.isArchived !== undefined ? req.body.isArchived : true;
+      const updated = await storage.setAssociationIdeaArchived(req.params.id, isArchived);
+      res.json(updated);
+    } catch (error) {
+      console.error("Association idea archive error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
@@ -9274,7 +9375,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ error: "Acces refuse" });
     }
     try {
-      const incidents = await storage.getAssociationIncidents(req.params.associationId);
+      const includeArchived = req.query.includeArchived === "true";
+      const incidents = await storage.getAssociationIncidents(req.params.associationId, includeArchived);
       res.json(incidents);
     } catch (error) {
       console.error("Association incidents list error:", error);
@@ -9320,6 +9422,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(updated);
     } catch (error) {
       console.error("Association incident status update error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Association Admin: Archive/unarchive incident
+  app.post("/api/associations/:associationId/admin/incidents/:id/archive", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const incident = await storage.getAssociationIncidentById(req.params.id);
+      if (!incident || incident.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Signalement non trouve" });
+      }
+      const isArchived = req.body.isArchived !== undefined ? req.body.isArchived : true;
+      const updated = await storage.setAssociationIncidentArchived(req.params.id, isArchived);
+      res.json(updated);
+    } catch (error) {
+      console.error("Association incident archive error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
@@ -9380,7 +9504,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ error: "Acces refuse" });
     }
     try {
-      const meetings = await storage.getAssociationMeetings(req.params.associationId);
+      const includeArchived = req.query.includeArchived === "true";
+      const meetings = await storage.getAssociationMeetings(req.params.associationId, includeArchived);
       res.json(meetings);
     } catch (error) {
       console.error("Association meetings list error:", error);
@@ -9480,6 +9605,28 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(updated);
     } catch (error) {
       console.error("Association meeting status update error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Association Admin: Archive/unarchive meeting
+  app.post("/api/associations/:associationId/admin/meetings/:id/archive", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const meeting = await storage.getAssociationMeetingById(req.params.id);
+      if (!meeting || meeting.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      const isArchived = req.body.isArchived !== undefined ? req.body.isArchived : true;
+      const updated = await storage.setAssociationMeetingArchived(req.params.id, isArchived);
+      res.json(updated);
+    } catch (error) {
+      console.error("Association meeting archive error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });

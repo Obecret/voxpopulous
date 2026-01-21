@@ -13,7 +13,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminSession } from "@/hooks/use-admin-session";
-import { Search, Filter, Eye, ThumbsUp, ThumbsDown, Loader2, Lock } from "lucide-react";
+import { Search, Filter, Eye, ThumbsUp, ThumbsDown, Loader2, Lock, Archive, ArchiveRestore } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { Idea } from "@shared/schema";
 import { IDEA_CATEGORIES } from "@shared/schema";
 
@@ -26,9 +28,15 @@ export default function AdminIdeas() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data: ideas, isLoading } = useQuery<Idea[]>({
-    queryKey: ["/api/tenants", params.slug, "admin", "ideas"],
+    queryKey: ["/api/tenants", params.slug, "admin", "ideas", { showArchived }],
+    queryFn: async () => {
+      const response = await fetch(`/api/tenants/${params.slug}/admin/ideas?includeArchived=${showArchived}`);
+      if (!response.ok) throw new Error("Failed to fetch ideas");
+      return response.json();
+    },
     enabled: !!session,
   });
 
@@ -37,12 +45,48 @@ export default function AdminIdeas() {
       return apiRequest("POST", `/api/tenants/${params.slug}/admin/ideas/${ideaId}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tenants", params.slug, "admin", "ideas"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/tenants" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "ideas"
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/tenants", params.slug, "admin", "stats"] });
       setSelectedIdea(null);
       toast({
         title: "Statut mis a jour",
         description: "Le statut de l'idee a ete modifie avec succes.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async ({ ideaId, isArchived }: { ideaId: string; isArchived: boolean }) => {
+      return apiRequest("POST", `/api/tenants/${params.slug}/admin/ideas/${ideaId}/archive`, { isArchived });
+    },
+    onSuccess: (_, { isArchived }) => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/tenants" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "ideas"
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants", params.slug, "admin", "stats"] });
+      setSelectedIdea(null);
+      toast({
+        title: isArchived ? "Idee archivee" : "Idee restauree",
+        description: isArchived 
+          ? "L'idee a ete archivee avec succes." 
+          : "L'idee a ete restauree avec succes.",
       });
     },
     onError: () => {
@@ -133,6 +177,17 @@ export default function AdminIdeas() {
                   ))}
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-archived"
+                  checked={showArchived}
+                  onCheckedChange={setShowArchived}
+                  data-testid="switch-show-archived"
+                />
+                <Label htmlFor="show-archived" className="text-sm whitespace-nowrap">
+                  Afficher archivees
+                </Label>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -198,17 +253,33 @@ export default function AdminIdeas() {
                           {new Date(idea.createdAt).toLocaleDateString("fr-FR")}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedIdea(idea);
-                              setNewStatus(idea.status);
-                            }}
-                            data-testid={`button-edit-${idea.id}`}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedIdea(idea);
+                                setNewStatus(idea.status);
+                              }}
+                              data-testid={`button-edit-${idea.id}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => archiveMutation.mutate({ ideaId: idea.id, isArchived: !(idea as any).isArchived })}
+                              disabled={archiveMutation.isPending}
+                              title={(idea as any).isArchived ? "Restaurer" : "Archiver"}
+                              data-testid={`button-archive-${idea.id}`}
+                            >
+                              {(idea as any).isArchived ? (
+                                <ArchiveRestore className="h-4 w-4" />
+                              ) : (
+                                <Archive className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

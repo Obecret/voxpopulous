@@ -17,7 +17,9 @@ import { StatusBadge } from "@/components/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Filter, Eye, Calendar, MapPin, Users, Plus, Trash2, Loader2 } from "lucide-react";
+import { Search, Filter, Eye, Calendar, MapPin, Users, Plus, Trash2, Loader2, Archive, ArchiveRestore } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { Association, AssociationUser, AssociationMeeting, AssociationMeetingRegistration, GlobalAssociationDomain } from "@shared/schema";
 
 type SafeAssociationUser = Omit<AssociationUser, "passwordHash">;
@@ -51,6 +53,7 @@ export default function AssociationAdminMeetings() {
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [newStatus, setNewStatus] = useState<string>("");
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data, isLoading: userLoading, error } = useQuery<{ user: SafeAssociationUser; association: Association }>({
     queryKey: ["/api/tenants", params.slug, "associations", params.assocSlug, "me"],
@@ -58,7 +61,12 @@ export default function AssociationAdminMeetings() {
   });
 
   const { data: meetings, isLoading: meetingsLoading } = useQuery<MeetingWithRegistrations[]>({
-    queryKey: ["/api/associations", data?.association?.id, "admin", "meetings"],
+    queryKey: ["/api/associations", data?.association?.id, "admin", "meetings", { showArchived }],
+    queryFn: async () => {
+      const response = await fetch(`/api/associations/${data?.association?.id}/admin/meetings?includeArchived=${showArchived}`);
+      if (!response.ok) throw new Error("Failed to fetch meetings");
+      return response.json();
+    },
     enabled: !!data?.association?.id,
   });
 
@@ -93,7 +101,13 @@ export default function AssociationAdminMeetings() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "meetings"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/associations" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "meetings"
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "stats"] });
       setIsCreating(false);
       form.reset();
@@ -123,7 +137,13 @@ export default function AssociationAdminMeetings() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "meetings"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/associations" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "meetings"
+      });
       setIsEditing(false);
       setSelectedMeeting(null);
       form.reset();
@@ -146,7 +166,13 @@ export default function AssociationAdminMeetings() {
       return apiRequest("PATCH", `/api/associations/${data?.association?.id}/admin/meetings/${meetingId}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "meetings"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/associations" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "meetings"
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "stats"] });
       setSelectedMeeting(null);
       toast({
@@ -163,12 +189,48 @@ export default function AssociationAdminMeetings() {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: async ({ meetingId, isArchived }: { meetingId: string; isArchived: boolean }) => {
+      return apiRequest("POST", `/api/associations/${data?.association?.id}/admin/meetings/${meetingId}/archive`, { isArchived });
+    },
+    onSuccess: (_, { isArchived }) => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/associations" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "meetings"
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "stats"] });
+      setSelectedMeeting(null);
+      toast({
+        title: isArchived ? "Evenement archive" : "Evenement restaure",
+        description: isArchived 
+          ? "L'evenement a ete archive avec succes." 
+          : "L'evenement a ete restaure avec succes.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (meetingId: string) => {
       return apiRequest("DELETE", `/api/associations/${data?.association?.id}/admin/meetings/${meetingId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "meetings"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/associations" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "meetings"
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "stats"] });
       setSelectedMeeting(null);
       toast({
@@ -285,6 +347,17 @@ export default function AssociationAdminMeetings() {
                   <SelectItem value="CANCELLED">Annule</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-archived"
+                  checked={showArchived}
+                  onCheckedChange={setShowArchived}
+                  data-testid="switch-show-archived"
+                />
+                <Label htmlFor="show-archived" className="text-sm whitespace-nowrap">
+                  Afficher archives
+                </Label>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -346,17 +419,33 @@ export default function AssociationAdminMeetings() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedMeeting(meeting);
-                              setNewStatus(meeting.status);
-                            }}
-                            data-testid={`button-view-meeting-${meeting.id}`}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedMeeting(meeting);
+                                setNewStatus(meeting.status);
+                              }}
+                              data-testid={`button-view-meeting-${meeting.id}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => archiveMutation.mutate({ meetingId: meeting.id, isArchived: !(meeting as any).isArchived })}
+                              disabled={archiveMutation.isPending}
+                              title={(meeting as any).isArchived ? "Restaurer" : "Archiver"}
+                              data-testid={`button-archive-${meeting.id}`}
+                            >
+                              {(meeting as any).isArchived ? (
+                                <ArchiveRestore className="h-4 w-4" />
+                              ) : (
+                                <Archive className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

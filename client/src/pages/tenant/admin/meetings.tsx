@@ -18,7 +18,9 @@ import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminSession } from "@/hooks/use-admin-session";
-import { Search, Plus, Eye, MapPin, Calendar, Users, Loader2, Clock, Lock } from "lucide-react";
+import { Search, Plus, Eye, MapPin, Calendar, Users, Loader2, Clock, Lock, Archive, ArchiveRestore } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { Meeting, MeetingRegistration, GlobalMunicipalityDomain } from "@shared/schema";
 
 interface MeetingWithRegistrations extends Meeting {
@@ -45,9 +47,15 @@ export default function AdminMeetings() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithRegistrations | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data: meetings, isLoading } = useQuery<MeetingWithRegistrations[]>({
-    queryKey: ["/api/tenants", params.slug, "admin", "meetings"],
+    queryKey: ["/api/tenants", params.slug, "admin", "meetings", { showArchived }],
+    queryFn: async () => {
+      const response = await fetch(`/api/tenants/${params.slug}/admin/meetings?includeArchived=${showArchived}`);
+      if (!response.ok) throw new Error("Failed to fetch meetings");
+      return response.json();
+    },
     enabled: !!session,
   });
 
@@ -85,7 +93,13 @@ export default function AdminMeetings() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tenants", params.slug, "admin", "meetings"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/tenants" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "meetings"
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/tenants", params.slug, "admin", "stats"] });
       setShowNewDialog(false);
       form.reset();
@@ -108,12 +122,48 @@ export default function AdminMeetings() {
       return apiRequest("POST", `/api/tenants/${params.slug}/admin/meetings/${meetingId}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tenants", params.slug, "admin", "meetings"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/tenants" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "meetings"
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/tenants", params.slug, "admin", "stats"] });
       setSelectedMeeting(null);
       toast({
         title: "Statut mis a jour",
         description: "Le statut de la reunion a ete modifie.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async ({ meetingId, isArchived }: { meetingId: string; isArchived: boolean }) => {
+      return apiRequest("POST", `/api/tenants/${params.slug}/admin/meetings/${meetingId}/archive`, { isArchived });
+    },
+    onSuccess: (_, { isArchived }) => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/tenants" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "meetings"
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants", params.slug, "admin", "stats"] });
+      setSelectedMeeting(null);
+      toast({
+        title: isArchived ? "Reunion archivee" : "Reunion restauree",
+        description: isArchived 
+          ? "La reunion a ete archivee avec succes." 
+          : "La reunion a ete restauree avec succes.",
       });
     },
     onError: () => {
@@ -185,15 +235,28 @@ export default function AdminMeetings() {
 
         <Card>
           <CardHeader className="pb-4">
-            <div className="relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-                data-testid="input-search"
-              />
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  data-testid="input-search"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-archived"
+                  checked={showArchived}
+                  onCheckedChange={setShowArchived}
+                  data-testid="switch-show-archived"
+                />
+                <Label htmlFor="show-archived" className="text-sm whitespace-nowrap">
+                  Afficher archives
+                </Label>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -243,17 +306,33 @@ export default function AdminMeetings() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedMeeting(meeting);
-                              setNewStatus(meeting.status);
-                            }}
-                            data-testid={`button-edit-${meeting.id}`}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedMeeting(meeting);
+                                setNewStatus(meeting.status);
+                              }}
+                              data-testid={`button-edit-${meeting.id}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => archiveMutation.mutate({ meetingId: meeting.id, isArchived: !(meeting as any).isArchived })}
+                              disabled={archiveMutation.isPending}
+                              title={(meeting as any).isArchived ? "Restaurer" : "Archiver"}
+                              data-testid={`button-archive-${meeting.id}`}
+                            >
+                              {(meeting as any).isArchived ? (
+                                <ArchiveRestore className="h-4 w-4" />
+                              ) : (
+                                <Archive className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

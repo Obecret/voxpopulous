@@ -103,29 +103,32 @@ export interface IStorage {
   createLead(lead: InsertLead): Promise<Lead>;
   getLeadById(id: string): Promise<Lead | undefined>;
   
-  getIdeasByTenant(tenantId: string): Promise<Idea[]>;
+  getIdeasByTenant(tenantId: string, includeArchived?: boolean): Promise<Idea[]>;
   getIdeaById(id: string): Promise<Idea | undefined>;
   getIdeaByToken(token: string): Promise<Idea | undefined>;
   createIdea(idea: InsertIdea & { tenantId: string; publicToken: string }): Promise<Idea>;
   updateIdeaStatus(id: string, status: string): Promise<Idea | undefined>;
+  setIdeaArchived(id: string, isArchived: boolean): Promise<Idea | undefined>;
   incrementIdeaVotes(id: string): Promise<void>;
   
   getIdeaVoteByIp(ideaId: string, voterIp: string): Promise<IdeaVote | undefined>;
   createIdeaVote(ideaId: string, voterIp: string): Promise<IdeaVote>;
   
-  getIncidentsByTenant(tenantId: string): Promise<Incident[]>;
+  getIncidentsByTenant(tenantId: string, includeArchived?: boolean): Promise<Incident[]>;
   getIncidentById(id: string): Promise<Incident | undefined>;
   getIncidentByToken(token: string): Promise<Incident | undefined>;
   createIncident(incident: InsertIncident & { tenantId: string; publicToken: string }): Promise<Incident>;
   updateIncidentStatus(id: string, status: string): Promise<Incident | undefined>;
+  setIncidentArchived(id: string, isArchived: boolean): Promise<Incident | undefined>;
   
   getIdeasByAnonymousId(tenantId: string, anonymousId: string): Promise<Idea[]>;
   getIncidentsByAnonymousId(tenantId: string, anonymousId: string): Promise<Incident[]>;
   
-  getMeetingsByTenant(tenantId: string): Promise<(Meeting & { registrationsCount: number })[]>;
+  getMeetingsByTenant(tenantId: string, includeArchived?: boolean): Promise<(Meeting & { registrationsCount: number })[]>;
   getMeetingById(id: string): Promise<(Meeting & { registrationsCount: number; ideas: Idea[]; registrations: MeetingRegistration[] }) | undefined>;
   createMeeting(meeting: InsertMeeting & { tenantId: string }): Promise<Meeting>;
   updateMeetingStatus(id: string, status: string): Promise<Meeting | undefined>;
+  setMeetingArchived(id: string, isArchived: boolean): Promise<Meeting | undefined>;
   
   getMeetingRegistrations(meetingId: string): Promise<MeetingRegistration[]>;
   createMeetingRegistration(reg: InsertMeetingRegistration & { meetingId: string }): Promise<MeetingRegistration>;
@@ -316,9 +319,13 @@ export class DatabaseStorage implements IStorage {
     return lead || undefined;
   }
 
-  async getIdeasByTenant(tenantId: string): Promise<Idea[]> {
+  async getIdeasByTenant(tenantId: string, includeArchived: boolean = false): Promise<Idea[]> {
+    const conditions = [eq(ideas.tenantId, tenantId)];
+    if (!includeArchived) {
+      conditions.push(eq(ideas.isArchived, false));
+    }
     return db.select().from(ideas)
-      .where(eq(ideas.tenantId, tenantId))
+      .where(and(...conditions))
       .orderBy(desc(ideas.createdAt));
   }
 
@@ -344,6 +351,14 @@ export class DatabaseStorage implements IStorage {
   async updateIdeaStatus(id: string, status: string): Promise<Idea | undefined> {
     const [updated] = await db.update(ideas)
       .set({ status: status as any, updatedAt: new Date() })
+      .where(eq(ideas.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async setIdeaArchived(id: string, isArchived: boolean): Promise<Idea | undefined> {
+    const [updated] = await db.update(ideas)
+      .set({ isArchived, updatedAt: new Date() })
       .where(eq(ideas.id, id))
       .returning();
     return updated || undefined;
@@ -448,9 +463,13 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getIncidentsByTenant(tenantId: string): Promise<Incident[]> {
+  async getIncidentsByTenant(tenantId: string, includeArchived: boolean = false): Promise<Incident[]> {
+    const conditions = [eq(incidents.tenantId, tenantId)];
+    if (!includeArchived) {
+      conditions.push(eq(incidents.isArchived, false));
+    }
     return db.select().from(incidents)
-      .where(eq(incidents.tenantId, tenantId))
+      .where(and(...conditions))
       .orderBy(desc(incidents.createdAt));
   }
 
@@ -480,6 +499,14 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
+  async setIncidentArchived(id: string, isArchived: boolean): Promise<Incident | undefined> {
+    const [updated] = await db.update(incidents)
+      .set({ isArchived, updatedAt: new Date() })
+      .where(eq(incidents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
   async getIdeasByAnonymousId(tenantId: string, anonymousId: string): Promise<Idea[]> {
     return db.select().from(ideas)
       .where(and(eq(ideas.tenantId, tenantId), eq(ideas.anonymousSubmitterId, anonymousId)))
@@ -492,9 +519,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(incidents.createdAt));
   }
 
-  async getMeetingsByTenant(tenantId: string): Promise<(Meeting & { registrationsCount: number })[]> {
+  async getMeetingsByTenant(tenantId: string, includeArchived: boolean = false): Promise<(Meeting & { registrationsCount: number })[]> {
+    const conditions = [eq(meetings.tenantId, tenantId)];
+    if (!includeArchived) {
+      conditions.push(eq(meetings.isArchived, false));
+    }
     const meetingsList = await db.select().from(meetings)
-      .where(eq(meetings.tenantId, tenantId))
+      .where(and(...conditions))
       .orderBy(asc(meetings.dateTime));
     
     const result = await Promise.all(meetingsList.map(async (meeting) => {
@@ -544,6 +575,14 @@ export class DatabaseStorage implements IStorage {
   async updateMeetingStatus(id: string, status: string): Promise<Meeting | undefined> {
     const [updated] = await db.update(meetings)
       .set({ status: status as any, updatedAt: new Date() })
+      .where(eq(meetings.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async setMeetingArchived(id: string, isArchived: boolean): Promise<Meeting | undefined> {
+    const [updated] = await db.update(meetings)
+      .set({ isArchived, updatedAt: new Date() })
       .where(eq(meetings.id, id))
       .returning();
     return updated || undefined;
@@ -2075,9 +2114,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Association Ideas methods
-  async getAssociationIdeas(associationId: string): Promise<AssociationIdea[]> {
+  async getAssociationIdeas(associationId: string, includeArchived: boolean = false): Promise<AssociationIdea[]> {
+    const conditions = [eq(associationIdeas.associationId, associationId)];
+    if (!includeArchived) {
+      conditions.push(eq(associationIdeas.isArchived, false));
+    }
     return db.select().from(associationIdeas)
-      .where(eq(associationIdeas.associationId, associationId))
+      .where(and(...conditions))
       .orderBy(desc(associationIdeas.createdAt));
   }
 
@@ -2103,6 +2146,14 @@ export class DatabaseStorage implements IStorage {
   async updateAssociationIdeaStatus(id: string, status: string): Promise<AssociationIdea | undefined> {
     const [updated] = await db.update(associationIdeas)
       .set({ status: status as any, updatedAt: new Date() })
+      .where(eq(associationIdeas.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async setAssociationIdeaArchived(id: string, isArchived: boolean): Promise<AssociationIdea | undefined> {
+    const [updated] = await db.update(associationIdeas)
+      .set({ isArchived, updatedAt: new Date() })
       .where(eq(associationIdeas.id, id))
       .returning();
     return updated || undefined;
@@ -2208,9 +2259,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Association Incidents methods
-  async getAssociationIncidents(associationId: string): Promise<AssociationIncident[]> {
+  async getAssociationIncidents(associationId: string, includeArchived: boolean = false): Promise<AssociationIncident[]> {
+    const conditions = [eq(associationIncidents.associationId, associationId)];
+    if (!includeArchived) {
+      conditions.push(eq(associationIncidents.isArchived, false));
+    }
     return db.select().from(associationIncidents)
-      .where(eq(associationIncidents.associationId, associationId))
+      .where(and(...conditions))
       .orderBy(desc(associationIncidents.createdAt));
   }
 
@@ -2240,10 +2295,22 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
+  async setAssociationIncidentArchived(id: string, isArchived: boolean): Promise<AssociationIncident | undefined> {
+    const [updated] = await db.update(associationIncidents)
+      .set({ isArchived, updatedAt: new Date() })
+      .where(eq(associationIncidents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
   // Association Meetings methods
-  async getAssociationMeetings(associationId: string): Promise<(AssociationMeeting & { registrationsCount: number })[]> {
+  async getAssociationMeetings(associationId: string, includeArchived: boolean = false): Promise<(AssociationMeeting & { registrationsCount: number })[]> {
+    const conditions = [eq(associationMeetings.associationId, associationId)];
+    if (!includeArchived) {
+      conditions.push(eq(associationMeetings.isArchived, false));
+    }
     const meetingsList = await db.select().from(associationMeetings)
-      .where(eq(associationMeetings.associationId, associationId))
+      .where(and(...conditions))
       .orderBy(asc(associationMeetings.dateTime));
     
     const result = await Promise.all(meetingsList.map(async (meeting) => {
@@ -2283,6 +2350,14 @@ export class DatabaseStorage implements IStorage {
   async updateAssociationMeeting(id: string, updates: Partial<InsertAssociationMeeting>): Promise<AssociationMeeting | undefined> {
     const [updated] = await db.update(associationMeetings)
       .set({ ...updates, updatedAt: new Date() })
+      .where(eq(associationMeetings.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async setAssociationMeetingArchived(id: string, isArchived: boolean): Promise<AssociationMeeting | undefined> {
+    const [updated] = await db.update(associationMeetings)
+      .set({ isArchived, updatedAt: new Date() })
       .where(eq(associationMeetings.id, id))
       .returning();
     return updated || undefined;

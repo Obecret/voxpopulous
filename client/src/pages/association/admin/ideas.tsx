@@ -12,7 +12,9 @@ import { StatusBadge } from "@/components/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Filter, Eye, ThumbsUp, ThumbsDown, Loader2 } from "lucide-react";
+import { Search, Filter, Eye, ThumbsUp, ThumbsDown, Loader2, Archive, ArchiveRestore } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import type { Association, AssociationUser, AssociationIdea } from "@shared/schema";
 import { IDEA_CATEGORIES } from "@shared/schema";
 
@@ -27,6 +29,7 @@ export default function AssociationAdminIdeas() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIdea, setSelectedIdea] = useState<AssociationIdea | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data, isLoading: userLoading, error } = useQuery<{ user: SafeAssociationUser; association: Association }>({
     queryKey: ["/api/tenants", params.slug, "associations", params.assocSlug, "me"],
@@ -34,7 +37,12 @@ export default function AssociationAdminIdeas() {
   });
 
   const { data: ideas, isLoading: ideasLoading } = useQuery<AssociationIdea[]>({
-    queryKey: ["/api/associations", data?.association?.id, "admin", "ideas"],
+    queryKey: ["/api/associations", data?.association?.id, "admin", "ideas", { showArchived }],
+    queryFn: async () => {
+      const response = await fetch(`/api/associations/${data?.association?.id}/admin/ideas?includeArchived=${showArchived}`);
+      if (!response.ok) throw new Error("Failed to fetch ideas");
+      return response.json();
+    },
     enabled: !!data?.association?.id,
   });
 
@@ -43,12 +51,48 @@ export default function AssociationAdminIdeas() {
       return apiRequest("PATCH", `/api/associations/${data?.association?.id}/admin/ideas/${ideaId}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "ideas"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/associations" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "ideas"
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "stats"] });
       setSelectedIdea(null);
       toast({
         title: "Statut mis a jour",
         description: "Le statut de l'idee a ete modifie avec succes.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async ({ ideaId, isArchived }: { ideaId: string; isArchived: boolean }) => {
+      return apiRequest("POST", `/api/associations/${data?.association?.id}/admin/ideas/${ideaId}/archive`, { isArchived });
+    },
+    onSuccess: (_, { isArchived }) => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => 
+          Array.isArray(query.queryKey) && 
+          query.queryKey[0] === "/api/associations" && 
+          query.queryKey[2] === "admin" && 
+          query.queryKey[3] === "ideas"
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/associations", data?.association?.id, "admin", "stats"] });
+      setSelectedIdea(null);
+      toast({
+        title: isArchived ? "Idee archivee" : "Idee restauree",
+        description: isArchived 
+          ? "L'idee a ete archivee avec succes." 
+          : "L'idee a ete restauree avec succes.",
       });
     },
     onError: () => {
@@ -139,6 +183,17 @@ export default function AssociationAdminIdeas() {
                   ))}
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="show-archived"
+                  checked={showArchived}
+                  onCheckedChange={setShowArchived}
+                  data-testid="switch-show-archived"
+                />
+                <Label htmlFor="show-archived" className="text-sm whitespace-nowrap">
+                  Afficher archives
+                </Label>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -204,17 +259,33 @@ export default function AssociationAdminIdeas() {
                           {new Date(idea.createdAt).toLocaleDateString("fr-FR")}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedIdea(idea);
-                              setNewStatus(idea.status);
-                            }}
-                            data-testid={`button-view-idea-${idea.id}`}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedIdea(idea);
+                                setNewStatus(idea.status);
+                              }}
+                              data-testid={`button-view-idea-${idea.id}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => archiveMutation.mutate({ ideaId: idea.id, isArchived: !(idea as any).isArchived })}
+                              disabled={archiveMutation.isPending}
+                              title={(idea as any).isArchived ? "Restaurer" : "Archiver"}
+                              data-testid={`button-archive-${idea.id}`}
+                            >
+                              {(idea as any).isArchived ? (
+                                <ArchiveRestore className="h-4 w-4" />
+                              ) : (
+                                <Archive className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

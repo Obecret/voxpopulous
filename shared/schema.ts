@@ -192,6 +192,7 @@ export const ideas = pgTable("ideas", {
   votesCount: integer("votes_count").notNull().default(0),
   upVotesCount: integer("up_votes_count").notNull().default(0),
   downVotesCount: integer("down_votes_count").notNull().default(0),
+  isArchived: boolean("is_archived").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -221,6 +222,7 @@ export const incidents = pgTable("incidents", {
   createdByEmail: text("created_by_email"),
   anonymousSubmitterId: text("anonymous_submitter_id"),
   publicToken: text("public_token").notNull().unique(),
+  isArchived: boolean("is_archived").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -235,6 +237,7 @@ export const meetings = pgTable("meetings", {
   status: meetingStatusEnum("status").notNull().default("SCHEDULED"),
   capacity: integer("capacity"),
   domainId: varchar("domain_id", { length: 36 }),
+  isArchived: boolean("is_archived").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -462,6 +465,7 @@ export const associationIdeas = pgTable("association_ideas", {
   votesCount: integer("votes_count").notNull().default(0),
   upVotesCount: integer("up_votes_count").notNull().default(0),
   downVotesCount: integer("down_votes_count").notNull().default(0),
+  isArchived: boolean("is_archived").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -490,6 +494,7 @@ export const associationIncidents = pgTable("association_incidents", {
   photoUrl: text("photo_url"),
   createdByEmail: text("created_by_email"),
   publicToken: text("public_token").notNull().unique(),
+  isArchived: boolean("is_archived").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -504,6 +509,7 @@ export const associationMeetings = pgTable("association_meetings", {
   location: text("location").notNull(),
   status: meetingStatusEnum("status").notNull().default("SCHEDULED"),
   capacity: integer("capacity"),
+  isArchived: boolean("is_archived").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
