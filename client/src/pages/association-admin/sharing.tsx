@@ -24,12 +24,12 @@ export default function AssociationSharing() {
   });
 
   const { data: user, error: userError } = useQuery<SafeAssociationUser>({
-    queryKey: ["/api/tenants", params.slug, "associations", params.assocSlug, "admin", "me"],
+    queryKey: ["/api/tenants", params.slug, "associations", params.assocSlug, "me"],
     retry: false,
   });
 
   if (userError) {
-    navigate(`/structures/${params.slug}/${params.assocSlug}/login`);
+    navigate(`/structures/${params.slug}/${params.assocSlug}/admin/login`);
     return null;
   }
 
