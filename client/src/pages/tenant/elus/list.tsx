@@ -7,9 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight, Mail, MessageCircle, UserCircle } from "lucide-react";
-import type { Tenant, ElectedOfficial, TenantInterventionDomain } from "@shared/schema";
+import type { Tenant, ElectedOfficial, GlobalMunicipalityDomain } from "@shared/schema";
 
-type ElectedOfficialWithDomains = ElectedOfficial & { domains?: TenantInterventionDomain[] };
+type ElectedOfficialWithDomains = ElectedOfficial & { domains?: GlobalMunicipalityDomain[] };
 
 function getPhotoUrl(photoObjectPath: string | null | undefined, photoUrl: string | null | undefined): string | undefined {
   if (photoObjectPath) {

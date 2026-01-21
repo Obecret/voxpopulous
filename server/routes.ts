@@ -9754,7 +9754,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
     try {
       const members = await storage.getBureauMembers(req.params.associationId);
-      res.json(members);
+      // Include domains for each member
+      const membersWithDomains = await Promise.all(
+        members.map(async (member) => {
+          const domains = await storage.getBureauMemberDomains(member.id);
+          return { ...member, domains };
+        })
+      );
+      res.json(membersWithDomains);
     } catch (error) {
       console.error("Bureau members list error:", error);
       res.status(500).json({ error: "Erreur serveur" });

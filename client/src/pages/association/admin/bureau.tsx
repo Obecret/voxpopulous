@@ -20,7 +20,9 @@ import { Search, Plus, Edit, Trash2, Loader2, Mail, User, Tags } from "lucide-re
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PhotoUpload } from "@/components/photo-upload";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Association, AssociationUser, BureauMember, AssociationInterventionDomain, BureauMemberFunction } from "@shared/schema";
+import type { Association, AssociationUser, BureauMember, GlobalAssociationDomain, BureauMemberFunction } from "@shared/schema";
+
+type BureauMemberWithDomains = BureauMember & { domains?: GlobalAssociationDomain[] };
 
 function getPhotoUrl(photoObjectPath: string | null | undefined, photoUrl: string | null | undefined): string | undefined {
   if (photoObjectPath) {
@@ -60,12 +62,12 @@ export default function AssociationAdminBureau() {
     retry: false,
   });
 
-  const { data: members, isLoading: membersLoading } = useQuery<BureauMember[]>({
+  const { data: members, isLoading: membersLoading } = useQuery<BureauMemberWithDomains[]>({
     queryKey: ["/api/associations", data?.association?.id, "admin", "bureau"],
     enabled: !!data?.association?.id,
   });
 
-  const { data: availableDomains = [] } = useQuery<AssociationInterventionDomain[]>({
+  const { data: availableDomains = [] } = useQuery<GlobalAssociationDomain[]>({
     queryKey: ["/api/associations", data?.association?.id, "admin", "domains"],
     enabled: !!data?.association?.id,
   });
@@ -222,7 +224,7 @@ export default function AssociationAdminBureau() {
     try {
       const response = await fetch(`/api/associations/${data?.association?.id}/admin/bureau/${member.id}/domains`, { credentials: "include" });
       if (response.ok) {
-        const domains: AssociationInterventionDomain[] = await response.json();
+        const domains: GlobalAssociationDomain[] = await response.json();
         setSelectedDomainIds(domains.map(d => d.id));
       } else {
         setSelectedDomainIds([]);
@@ -284,6 +286,7 @@ export default function AssociationAdminBureau() {
                     <TableRow>
                       <TableHead>Nom</TableHead>
                       <TableHead>Fonction</TableHead>
+                      <TableHead className="hidden lg:table-cell">Domaines</TableHead>
                       <TableHead className="hidden md:table-cell">Email</TableHead>
                       <TableHead className="hidden sm:table-cell">Statut</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -303,6 +306,32 @@ export default function AssociationAdminBureau() {
                         </TableCell>
                         <TableCell>
                           {member.function}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {member.domains && member.domains.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {member.domains.slice(0, 3).map((domain) => (
+                                <Badge 
+                                  key={domain.id} 
+                                  variant="outline" 
+                                  className="text-xs"
+                                  style={{ 
+                                    borderColor: domain.color || undefined,
+                                    color: domain.color || undefined 
+                                  }}
+                                >
+                                  {domain.name}
+                                </Badge>
+                              ))}
+                              {member.domains.length > 3 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{member.domains.length - 3}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <span className="flex items-center gap-1.5 text-muted-foreground">
