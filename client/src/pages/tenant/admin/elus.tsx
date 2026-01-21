@@ -87,7 +87,9 @@ export default function AdminElus() {
     retry: false,
   });
 
-  const { data: elus = [], isLoading } = useQuery<ElectedOfficial[]>({
+  type ElectedOfficialWithDomains = ElectedOfficial & { domains?: GlobalMunicipalityDomain[] };
+  
+  const { data: elus = [], isLoading } = useQuery<ElectedOfficialWithDomains[]>({
     queryKey: ["/api/tenants", params.slug, "admin", "elus"],
     enabled: !!user,
   });
@@ -334,6 +336,7 @@ export default function AdminElus() {
                       <TableHead className="w-10"></TableHead>
                       <TableHead>{isAssociation ? "Membre" : "Elu"}</TableHead>
                       <TableHead>Fonction</TableHead>
+                      <TableHead className="hidden lg:table-cell">Domaines</TableHead>
                       <TableHead className="hidden md:table-cell">Email</TableHead>
                       <TableHead>Statut</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -357,6 +360,32 @@ export default function AdminElus() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{elu.function}</TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {elu.domains && elu.domains.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {elu.domains.slice(0, 3).map((domain) => (
+                                <Badge 
+                                  key={domain.id} 
+                                  variant="outline" 
+                                  className="text-xs"
+                                  style={{ 
+                                    borderColor: domain.color || undefined,
+                                    color: domain.color || undefined 
+                                  }}
+                                >
+                                  {domain.name}
+                                </Badge>
+                              ))}
+                              {elu.domains.length > 3 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  +{elu.domains.length - 3}
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
                         <TableCell className="hidden md:table-cell text-muted-foreground">{elu.email || "-"}</TableCell>
                         <TableCell>
                           <Badge variant={elu.isActive ? "default" : "secondary"}>

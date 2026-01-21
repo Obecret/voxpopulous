@@ -10328,7 +10328,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const elus = await storage.getElectedOfficialsByTenant(tenant.id);
-      res.json(elus);
+      
+      // Fetch domains for each elected official
+      const elusWithDomains = await Promise.all(
+        elus.map(async (elu) => {
+          const domains = await storage.getElectedOfficialDomains(elu.id);
+          return { ...elu, domains };
+        })
+      );
+      
+      res.json(elusWithDomains);
     } catch (error) {
       console.error("Admin elected officials error:", error);
       res.status(500).json({ error: "Erreur serveur" });
