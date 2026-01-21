@@ -1093,6 +1093,30 @@ export const invoiceSequences = pgTable("invoice_sequences", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Global Domains for Municipalities/EPCI - managed by superadmin
+export const globalMunicipalityDomains = pgTable("global_municipality_domains", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: text("color"),
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Global Domains for Associations - managed by superadmin
+export const globalAssociationDomains = pgTable("global_association_domains", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: text("color"),
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Intervention Domains for Tenants (municipalities) - assigned to elected officials
 export const tenantInterventionDomains = pgTable("tenant_intervention_domains", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
@@ -1568,6 +1592,24 @@ export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 
 export type TenantFeatureOverride = typeof tenantFeatureOverrides.$inferSelect;
+
+// Global Municipality Domains schemas and types
+export const insertGlobalMunicipalityDomainSchema = createInsertSchema(globalMunicipalityDomains).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type GlobalMunicipalityDomain = typeof globalMunicipalityDomains.$inferSelect;
+export type InsertGlobalMunicipalityDomain = z.infer<typeof insertGlobalMunicipalityDomainSchema>;
+
+// Global Association Domains schemas and types
+export const insertGlobalAssociationDomainSchema = createInsertSchema(globalAssociationDomains).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type GlobalAssociationDomain = typeof globalAssociationDomains.$inferSelect;
+export type InsertGlobalAssociationDomain = z.infer<typeof insertGlobalAssociationDomainSchema>;
 
 export const insertTenantInterventionDomainSchema = createInsertSchema(tenantInterventionDomains).omit({
   id: true,
