@@ -22,7 +22,8 @@ import {
   Hash,
   Tag,
   Calculator,
-  Activity
+  Activity,
+  Layers
 } from "lucide-react";
 import { useSuperadminTheme } from "@/hooks/use-superadmin-theme";
 import {
@@ -151,6 +152,11 @@ const chorusProMenuItems = [
     title: "Fonctions",
     url: "/superadmin/functions",
     icon: Users,
+  },
+  {
+    title: "Domaines",
+    url: "/superadmin/domains",
+    icon: Layers,
   },
 ];
 

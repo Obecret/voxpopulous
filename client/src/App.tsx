@@ -120,6 +120,7 @@ import SuperadminAuditHistory from "@/pages/superadmin/audit-history";
 import SuperadminDocumentFormats from "@/pages/superadmin/document-formats";
 import SuperadminServiceCodes from "@/pages/superadmin/service-codes";
 import SuperadminFunctions from "@/pages/superadmin/functions";
+import SuperadminDomains from "@/pages/superadmin/domains";
 import SuperadminAccounting from "@/pages/superadmin/accounting";
 import Subscribe from "@/pages/subscribe";
 import SignupOptions from "@/pages/signup-options";
@@ -231,6 +232,7 @@ function Router() {
       <Route path="/superadmin/document-formats" component={SuperadminDocumentFormats} />
       <Route path="/superadmin/service-codes" component={SuperadminServiceCodes} />
       <Route path="/superadmin/functions" component={SuperadminFunctions} />
+      <Route path="/superadmin/domains" component={SuperadminDomains} />
       <Route path="/superadmin/audit-history" component={SuperadminAuditHistory} />
       <Route path="/superadmin/accounting" component={SuperadminAccounting} />
       
