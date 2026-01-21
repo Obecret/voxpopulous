@@ -19,7 +19,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminSession } from "@/hooks/use-admin-session";
 import { Search, Plus, Eye, MapPin, Calendar, Users, Loader2, Clock, Lock } from "lucide-react";
-import type { Meeting, MeetingRegistration } from "@shared/schema";
+import type { Meeting, MeetingRegistration, GlobalMunicipalityDomain } from "@shared/schema";
 
 interface MeetingWithRegistrations extends Meeting {
   registrationsCount: number;
@@ -32,6 +32,7 @@ const meetingFormSchema = z.object({
   dateTime: z.string().min(1, "Date requise"),
   location: z.string().min(3, "Minimum 3 caracteres"),
   capacity: z.string().optional(),
+  domainId: z.string().optional(),
 });
 
 type MeetingForm = z.infer<typeof meetingFormSchema>;
@@ -55,6 +56,10 @@ export default function AdminMeetings() {
     enabled: !!selectedMeeting?.id,
   });
 
+  const { data: domains = [] } = useQuery<GlobalMunicipalityDomain[]>({
+    queryKey: ["/api/public/municipality-domains"],
+  });
+
   const form = useForm<MeetingForm>({
     resolver: zodResolver(meetingFormSchema),
     defaultValues: {
@@ -63,6 +68,7 @@ export default function AdminMeetings() {
       dateTime: "",
       location: "",
       capacity: "",
+      domainId: "",
     },
   });
 
@@ -74,6 +80,7 @@ export default function AdminMeetings() {
         dateTime: new Date(data.dateTime).toISOString(),
         location: data.location,
         capacity: data.capacity ? parseInt(data.capacity) : null,
+        domainId: data.domainId || null,
         status: "SCHEDULED",
       });
     },
@@ -325,6 +332,28 @@ export default function AdminMeetings() {
                       <FormControl>
                         <Textarea placeholder="Ordre du jour..." {...field} data-testid="input-description" />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="domainId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Domaine (optionnel)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-domain">
+                            <SelectValue placeholder="Choisir un domaine" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {domains.map((domain) => (
+                            <SelectItem key={domain.id} value={domain.id}>{domain.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

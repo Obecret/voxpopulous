@@ -15,7 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAnonymousId } from "@/hooks/use-anonymous-id";
 import { ArrowLeft, Loader2, AlertTriangle, CheckCircle2, Camera, X, ImageIcon } from "lucide-react";
-import type { Tenant, TenantInterventionDomain } from "@shared/schema";
+import type { Tenant, GlobalMunicipalityDomain } from "@shared/schema";
 import { INCIDENT_CATEGORIES } from "@shared/schema";
 import { LocationPicker } from "@/components/location-picker";
 
@@ -45,8 +45,8 @@ export default function NewIncident() {
     queryKey: ["/api/tenants", params.slug],
   });
 
-  const { data: domains = [], isLoading: domainsLoading } = useQuery<TenantInterventionDomain[]>({
-    queryKey: ["/api/tenants", params.slug, "domains"],
+  const { data: domains = [], isLoading: domainsLoading } = useQuery<GlobalMunicipalityDomain[]>({
+    queryKey: ["/api/public/municipality-domains"],
   });
 
   const form = useForm<IncidentForm>({

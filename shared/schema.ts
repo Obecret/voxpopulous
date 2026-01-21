@@ -234,6 +234,7 @@ export const meetings = pgTable("meetings", {
   location: text("location").notNull(),
   status: meetingStatusEnum("status").notNull().default("SCHEDULED"),
   capacity: integer("capacity"),
+  domainId: varchar("domain_id", { length: 36 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

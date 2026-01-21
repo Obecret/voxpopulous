@@ -15,7 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAnonymousId } from "@/hooks/use-anonymous-id";
 import { ArrowLeft, Loader2, Lightbulb, CheckCircle2 } from "lucide-react";
-import type { Tenant, TenantInterventionDomain } from "@shared/schema";
+import type { Tenant, GlobalMunicipalityDomain } from "@shared/schema";
 import { IDEA_CATEGORIES } from "@shared/schema";
 
 const ideaFormSchema = z.object({
@@ -38,8 +38,8 @@ export default function NewIdea() {
     queryKey: ["/api/tenants", params.slug],
   });
 
-  const { data: domains = [], isLoading: domainsLoading } = useQuery<TenantInterventionDomain[]>({
-    queryKey: ["/api/tenants", params.slug, "domains"],
+  const { data: domains = [], isLoading: domainsLoading } = useQuery<GlobalMunicipalityDomain[]>({
+    queryKey: ["/api/public/municipality-domains"],
   });
 
   const form = useForm<IdeaForm>({

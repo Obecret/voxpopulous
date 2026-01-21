@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Filter, Eye, Calendar, MapPin, Users, Plus, Trash2, Loader2 } from "lucide-react";
-import type { Association, AssociationUser, AssociationMeeting, AssociationMeetingRegistration } from "@shared/schema";
+import type { Association, AssociationUser, AssociationMeeting, AssociationMeetingRegistration, GlobalAssociationDomain } from "@shared/schema";
 
 type SafeAssociationUser = Omit<AssociationUser, "passwordHash">;
 
@@ -28,6 +28,7 @@ const meetingFormSchema = z.object({
   dateTime: z.string().min(1, "La date est requise"),
   location: z.string().min(2, "Le lieu est requis"),
   capacity: z.number().min(1).optional().nullable(),
+  domainId: z.string().optional(),
 });
 
 type MeetingFormData = z.infer<typeof meetingFormSchema>;
@@ -66,6 +67,10 @@ export default function AssociationAdminMeetings() {
     enabled: !!data?.association?.id && !!selectedMeeting?.id && !isEditing,
   });
 
+  const { data: domains = [] } = useQuery<GlobalAssociationDomain[]>({
+    queryKey: ["/api/public/association-domains"],
+  });
+
   const form = useForm<MeetingFormData>({
     resolver: zodResolver(meetingFormSchema),
     defaultValues: {
@@ -74,6 +79,7 @@ export default function AssociationAdminMeetings() {
       dateTime: "",
       location: "",
       capacity: null,
+      domainId: "",
     },
   });
 
@@ -83,6 +89,7 @@ export default function AssociationAdminMeetings() {
         ...values,
         dateTime: new Date(values.dateTime).toISOString(),
         capacity: values.capacity || null,
+        domainId: values.domainId || null,
       });
     },
     onSuccess: () => {
@@ -112,6 +119,7 @@ export default function AssociationAdminMeetings() {
         dateTime: new Date(values.dateTime).toISOString(),
         location: values.location,
         capacity: values.capacity || null,
+        domainId: values.domainId || null,
       });
     },
     onSuccess: () => {
@@ -437,6 +445,28 @@ export default function AssociationAdminMeetings() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="domainId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Domaine (optionnel)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-meeting-domain">
+                            <SelectValue placeholder="Choisir un domaine" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {domains.map((domain) => (
+                            <SelectItem key={domain.id} value={domain.id}>{domain.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsCreating(false)}>
                     Annuler
@@ -525,6 +555,28 @@ export default function AssociationAdminMeetings() {
                           data-testid="input-edit-meeting-capacity"
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="domainId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Domaine (optionnel)</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-meeting-domain">
+                            <SelectValue placeholder="Choisir un domaine" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {domains.map((domain) => (
+                            <SelectItem key={domain.id} value={domain.id}>{domain.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
