@@ -21,7 +21,8 @@ import {
   History,
   Hash,
   Tag,
-  Calculator
+  Calculator,
+  Activity
 } from "lucide-react";
 import { useSuperadminTheme } from "@/hooks/use-superadmin-theme";
 import {
@@ -121,6 +122,11 @@ const adminMenuItems = [
     title: "Administrateurs",
     url: "/superadmin/admins",
     icon: UserCog,
+  },
+  {
+    title: "Suivi des Activites",
+    url: "/superadmin/activity-tracking",
+    icon: Activity,
   },
   {
     title: "Configuration",

@@ -31,7 +31,9 @@ import { generateQuotePdf, generateInvoicePdf, generateMandateOrderPdf, generate
 import { getUncachableStripeClient, getStripePublishableKey, getCurrentStripeMode, invalidateStripeSync } from "./stripeClient";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { validateSiret } from "./services/siret-validation";
+import { logActivity, isDeviceBlocked, getClientIp, parseUserAgent } from "./activity-tracker";
 import type { Tenant } from "@shared/schema";
+import cookieParser from "cookie-parser";
 
 // Helper function to check if tenant account is blocked
 function isTenantBlocked(tenant: Tenant): { blocked: boolean; reason?: string } {
@@ -278,9 +280,97 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     })
   );
 
+  // Cookie parser for device tracking
+  app.use(cookieParser());
+
   // Health check endpoint for Docker/Scaleway
   app.get("/api/health", (req, res) => {
     res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Helper function to get or create device ID and set cookie
+  const getOrCreateDeviceId = (req: any, res: any): string => {
+    let deviceId = req.cookies?.vp_device_id;
+    if (!deviceId) {
+      deviceId = randomUUID();
+      res.cookie("vp_device_id", deviceId, {
+        maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+        httpOnly: false, // Readable by client for tracking
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      });
+    }
+    return deviceId;
+  };
+
+  // Middleware to check device block status on authenticated requests only
+  const deviceBlockMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+    // Only apply to authenticated sessions - check if any auth session exists
+    const hasAuthSession = !!(
+      req.session?.superadminId ||
+      req.session?.userId ||
+      req.session?.tenantId ||
+      req.session?.electedOfficialId ||
+      req.session?.associationUserId
+    );
+    
+    if (!hasAuthSession) {
+      return next();
+    }
+    
+    // Get or create device ID for authenticated requests - always enforce device ID
+    const deviceId = getOrCreateDeviceId(req, res);
+    
+    // Check if device ID stored in session matches cookie (prevents cookie clearing bypass)
+    const sessionDeviceId = (req.session as any).deviceId;
+    if (sessionDeviceId && sessionDeviceId !== deviceId) {
+      // Cookie was cleared and regenerated - use session's device ID for blocking check
+      const blockStatus = await isDeviceBlocked(sessionDeviceId);
+      if (blockStatus.blocked) {
+        req.session.destroy((err) => {
+          if (err) console.error("Session destroy error:", err);
+        });
+        return res.status(403).json({ 
+          error: blockStatus.reason || "Appareil bloque",
+          deviceBlocked: true
+        });
+      }
+    }
+    
+    // Check current device ID
+    const blockStatus = await isDeviceBlocked(deviceId);
+    if (blockStatus.blocked) {
+      // Clear session to log out the blocked device
+      req.session.destroy((err) => {
+        if (err) console.error("Session destroy error:", err);
+      });
+      return res.status(403).json({ 
+        error: blockStatus.reason || "Appareil bloque",
+        deviceBlocked: true
+      });
+    }
+    
+    // Store device ID in session for future validation
+    if (!sessionDeviceId) {
+      (req.session as any).deviceId = deviceId;
+    }
+    
+    next();
+  };
+  
+  // Apply device block middleware to all routes
+  app.use(deviceBlockMiddleware);
+
+  // Device tracking endpoint - generates/returns device ID and checks if device is blocked
+  app.get("/api/device/status", async (req, res) => {
+    try {
+      const deviceId = getOrCreateDeviceId(req, res);
+      const blockStatus = await isDeviceBlocked(deviceId);
+      res.json({ deviceId, blocked: blockStatus.blocked, reason: blockStatus.reason });
+    } catch (error) {
+      console.error("Device status error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
   });
 
   app.post("/api/objects/upload", async (req, res) => {
@@ -320,6 +410,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       const { email, password } = parsed.data;
+      
+      // Get or create device ID and check blocking
+      const deviceId = getOrCreateDeviceId(req, res);
+      const blockStatus = await isDeviceBlocked(deviceId);
+      if (blockStatus.blocked) {
+        return res.status(403).json({ error: blockStatus.reason || "Appareil bloque", deviceBlocked: true });
+      }
+      
       const superadmin = await storage.getSuperadminByEmail(email);
       if (!superadmin) {
         return res.status(401).json({ error: "Email ou mot de passe incorrect" });
@@ -332,6 +430,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       req.session.superadminId = superadmin.id;
       await storage.updateSuperadminLastLogin(superadmin.id);
+      
+      // Log activity
+      await logActivity({
+        req,
+        deviceId,
+        activityType: "LOGIN",
+        superadminId: superadmin.id,
+        superadminEmail: superadmin.email,
+        actionDetails: "Connexion superadmin"
+      });
 
       const { passwordHash, ...safeAdmin } = superadmin;
       res.json({ superadmin: safeAdmin });
@@ -4643,6 +4751,114 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ==========================================
+  // ACTIVITY TRACKING & DEVICE MANAGEMENT
+  // ==========================================
+  
+  // Get all activity logs (superadmin only)
+  app.get("/api/superadmin/activity-logs", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const offset = parseInt(req.query.offset as string) || 0;
+      const logs = await storage.getActivityLogs(limit, offset);
+      const total = await storage.getActivityLogsCount();
+      res.json({ logs, total, limit, offset });
+    } catch (error) {
+      console.error("Activity logs error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Get activity logs for a specific device
+  app.get("/api/superadmin/activity-logs/device/:deviceId", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const logs = await storage.getActivityLogsByDeviceId(req.params.deviceId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Device activity logs error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Get all blocked devices
+  app.get("/api/superadmin/blocked-devices", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const devices = await storage.getAllBlockedDevices();
+      res.json(devices);
+    } catch (error) {
+      console.error("Blocked devices error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Block a device
+  app.post("/api/superadmin/devices/:deviceId/block", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const { deviceId } = req.params;
+      const { reason } = req.body;
+      
+      // Get superadmin info
+      const superadmin = await storage.getSuperadminById(req.session.superadminId);
+      
+      // Get the last activity for this device to get additional info
+      const deviceLogs = await storage.getActivityLogsByDeviceId(deviceId);
+      const lastLog = deviceLogs[0];
+      
+      // Check if already blocked
+      const existingBlock = await storage.getBlockedDeviceByDeviceId(deviceId);
+      if (existingBlock) {
+        return res.status(400).json({ error: "Appareil deja bloque" });
+      }
+      
+      const blocked = await storage.createBlockedDevice({
+        deviceId,
+        reason: reason || "Bloque par superadmin",
+        blockedBy: req.session.superadminId,
+        blockedByEmail: superadmin?.email,
+        lastIpAddress: lastLog?.ipAddress,
+        lastUserAgent: lastLog?.userAgent,
+        lastTenantName: lastLog?.tenantName,
+        lastUserName: lastLog?.userName || lastLog?.electedOfficialName || lastLog?.superadminEmail,
+        isActive: true,
+      });
+      
+      res.json(blocked);
+    } catch (error) {
+      console.error("Block device error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Unblock a device
+  app.post("/api/superadmin/devices/:deviceId/unblock", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const { deviceId } = req.params;
+      const unblocked = await storage.unblockDevice(deviceId);
+      if (!unblocked) {
+        return res.status(404).json({ error: "Appareil non trouve dans la liste des bloques" });
+      }
+      res.json(unblocked);
+    } catch (error) {
+      console.error("Unblock device error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // ==========================================
   // TENANT PUBLIC ROUTES
   // ==========================================
 
@@ -4907,6 +5123,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/tenants/:slug/admin/login", async (req, res) => {
     try {
+      // Get or create device ID and check blocking
+      const deviceId = getOrCreateDeviceId(req, res);
+      const deviceBlockStatus = await isDeviceBlocked(deviceId);
+      if (deviceBlockStatus.blocked) {
+        return res.status(403).json({ error: deviceBlockStatus.reason || "Appareil bloque", deviceBlocked: true });
+      }
+      
       const tenant = await storage.getTenantBySlug(req.params.slug);
       if (!tenant) {
         return res.status(404).json({ error: "Tenant not found" });
@@ -4926,6 +5149,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       req.session.userId = user.id;
       req.session.tenantId = tenant.id;
+      
+      // Log activity
+      await logActivity({
+        req,
+        deviceId,
+        activityType: "LOGIN",
+        tenantId: tenant.id,
+        tenantSlug: tenant.slug,
+        tenantName: tenant.name,
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        userRole: user.role || undefined,
+        actionDetails: "Connexion admin tenant"
+      });
 
       res.json({ success: true, user: { id: user.id, name: user.name, email: user.email } });
     } catch (error: any) {
@@ -8510,6 +8748,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Association: Login
   app.post("/api/tenants/:slug/associations/:assocSlug/login", async (req, res) => {
     try {
+      // Get or create device ID and check blocking
+      const deviceId = getOrCreateDeviceId(req, res);
+      const deviceBlockStatus = await isDeviceBlocked(deviceId);
+      if (deviceBlockStatus.blocked) {
+        return res.status(403).json({ error: deviceBlockStatus.reason || "Appareil bloque", deviceBlocked: true });
+      }
+      
       const tenant = await storage.getTenantBySlug(req.params.slug);
       if (!tenant) {
         return res.status(404).json({ error: "Commune non trouvee" });
@@ -8540,6 +8785,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       req.session.associationUserId = user.id;
       req.session.associationId = association.id;
       req.session.tenantId = tenant.id;
+      
+      // Log activity
+      await logActivity({
+        req,
+        deviceId,
+        activityType: "LOGIN",
+        tenantId: tenant.id,
+        tenantSlug: tenant.slug,
+        tenantName: tenant.name,
+        associationSlug: association.slug,
+        associationName: association.name,
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        userRole: user.role || undefined,
+        actionDetails: "Connexion association"
+      });
 
       const { passwordHash, ...safeUser } = user;
       res.json({ user: safeUser, association });
@@ -10237,6 +10499,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Elected official login
   app.post("/api/elus/login", async (req, res) => {
     try {
+      // Get or create device ID and check blocking
+      const deviceId = getOrCreateDeviceId(req, res);
+      const deviceBlockStatus = await isDeviceBlocked(deviceId);
+      if (deviceBlockStatus.blocked) {
+        return res.status(403).json({ error: deviceBlockStatus.reason || "Appareil bloque", deviceBlocked: true });
+      }
+      
       const { email, password } = req.body;
       if (!email || !password) {
         return res.status(400).json({ error: "Email et mot de passe requis" });
@@ -10256,6 +10525,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       req.session.tenantId = official.tenantId;
       const tenant = await storage.getTenantById(official.tenantId);
       const permissions = await storage.getElectedOfficialMenuPermissions(official.id);
+      
+      // Log activity
+      await logActivity({
+        req,
+        deviceId,
+        activityType: "LOGIN",
+        tenantId: official.tenantId,
+        tenantSlug: tenant?.slug,
+        tenantName: tenant?.name,
+        electedOfficialId: official.id,
+        electedOfficialName: `${official.firstName} ${official.lastName}`,
+        actionDetails: "Connexion elu"
+      });
+      
       res.json({ 
         success: true, 
         electedOfficial: {

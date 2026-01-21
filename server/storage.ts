@@ -65,6 +65,8 @@ import {
   type BureauMemberFunction, type InsertBureauMemberFunction,
   type ChatThread, type InsertChatThread,
   type ChatMessage, type InsertChatMessage,
+  type ActivityLog, type InsertActivityLog,
+  type BlockedDevice, type InsertBlockedDevice,
   tenants, users, leads, leadMessages, ideas, ideaVotes, incidents, meetings, meetingIdeas, meetingRegistrations, superadmins, superadminSettings, companySettings,
   subscriptionPlans, planFeatures, features, planFeatureAssignments, addons, planAddonAccess, tenantAddons, tenantFeatureOverrides, associations, associationUsers, 
   associationIdeas, associationIdeaVotes, associationIncidents, associationMeetings, associationMeetingRegistrations, bureauMembers, tenantElectedOfficials,
@@ -77,7 +79,8 @@ import {
   auditLogs,
   documentNumberFormats, serviceCodes, tenantServiceCodes, tenantDocumentNumberingConfig,
   legalEntitySettings, eluFunctions, bureauMemberFunctions,
-  chatThreads, chatMessages
+  chatThreads, chatMessages,
+  activityLogs, blockedDevices
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, gte, count } from "drizzle-orm";
@@ -3955,6 +3958,59 @@ export class DatabaseStorage implements IStorage {
     }
     
     return { member, domains };
+  }
+
+  // Activity Logs
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const [created] = await db.insert(activityLogs).values(log).returning();
+    return created;
+  }
+
+  async getActivityLogs(limit: number = 100, offset: number = 0): Promise<ActivityLog[]> {
+    return db.select().from(activityLogs)
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getActivityLogsByDeviceId(deviceId: string): Promise<ActivityLog[]> {
+    return db.select().from(activityLogs)
+      .where(eq(activityLogs.deviceId, deviceId))
+      .orderBy(desc(activityLogs.createdAt));
+  }
+
+  async getActivityLogsCount(): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(activityLogs);
+    return result?.count || 0;
+  }
+
+  // Blocked Devices
+  async createBlockedDevice(device: InsertBlockedDevice): Promise<BlockedDevice> {
+    const [created] = await db.insert(blockedDevices).values(device).returning();
+    return created;
+  }
+
+  async getBlockedDeviceByDeviceId(deviceId: string): Promise<BlockedDevice | undefined> {
+    const [device] = await db.select().from(blockedDevices)
+      .where(and(eq(blockedDevices.deviceId, deviceId), eq(blockedDevices.isActive, true)));
+    return device;
+  }
+
+  async getAllBlockedDevices(): Promise<BlockedDevice[]> {
+    return db.select().from(blockedDevices)
+      .orderBy(desc(blockedDevices.createdAt));
+  }
+
+  async unblockDevice(deviceId: string): Promise<BlockedDevice | undefined> {
+    const [updated] = await db.update(blockedDevices)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(blockedDevices.deviceId, deviceId))
+      .returning();
+    return updated;
+  }
+
+  async deleteActivityLogsByDeviceId(deviceId: string): Promise<void> {
+    await db.delete(activityLogs).where(eq(activityLogs.deviceId, deviceId));
   }
 }
 

@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PWAInstallProvider } from "@/hooks/use-pwa-install";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
+import { DeviceBlocker } from "@/components/device-blocker";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -106,6 +107,7 @@ import SuperadminAddons from "@/pages/superadmin/addons";
 import SuperadminQuotes from "@/pages/superadmin/quotes";
 import SuperadminInvoices from "@/pages/superadmin/invoices";
 import SuperadminAdmins from "@/pages/superadmin/admins";
+import SuperadminActivityTracking from "@/pages/superadmin/activity-tracking";
 import SuperadminConfiguration from "@/pages/superadmin/configuration";
 import SuperadminMandateOrders from "@/pages/superadmin/mandate-orders";
 import SuperadminMandateInvoices from "@/pages/superadmin/mandate-invoices";
@@ -224,6 +226,7 @@ function Router() {
       <Route path="/superadmin/orders" component={SuperadminOrders} />
       <Route path="/superadmin/all-invoices" component={SuperadminAllInvoices} />
       <Route path="/superadmin/admins" component={SuperadminAdmins} />
+      <Route path="/superadmin/activity-tracking" component={SuperadminActivityTracking} />
       <Route path="/superadmin/configuration" component={SuperadminConfiguration} />
       <Route path="/superadmin/document-formats" component={SuperadminDocumentFormats} />
       <Route path="/superadmin/service-codes" component={SuperadminServiceCodes} />
@@ -242,10 +245,12 @@ function App() {
       <ThemeProvider defaultTheme="light" storageKey="voxpopulous-theme">
         <TooltipProvider>
           <PWAInstallProvider>
-            <ScrollToTop />
-            <Toaster />
-            <Router />
-            <PWAInstallPrompt />
+            <DeviceBlocker>
+              <ScrollToTop />
+              <Toaster />
+              <Router />
+              <PWAInstallPrompt />
+            </DeviceBlocker>
           </PWAInstallProvider>
         </TooltipProvider>
       </ThemeProvider>

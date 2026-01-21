@@ -2063,3 +2063,68 @@ export const DEFAULT_BUREAU_MEMBER_FUNCTIONS = [
   { label: "Secretaire", isDefault: true, displayOrder: 5 },
   { label: "Secretaire Adjoint", isDefault: true, displayOrder: 6 },
 ];
+
+// =====================================================
+// ACTIVITY LOGS & DEVICE TRACKING
+// =====================================================
+export const activityLogTypeEnum = pgEnum("activity_log_type", ["LOGIN", "LOGOUT", "PAGE_VIEW", "ACTION"]);
+export const deviceTypeEnum = pgEnum("device_type", ["DESKTOP", "MOBILE", "TABLET", "UNKNOWN"]);
+
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  deviceId: text("device_id").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  deviceType: deviceTypeEnum("device_type").default("UNKNOWN"),
+  browserName: text("browser_name"),
+  osName: text("os_name"),
+  activityType: activityLogTypeEnum("activity_type").notNull().default("LOGIN"),
+  tenantId: varchar("tenant_id", { length: 36 }),
+  tenantSlug: text("tenant_slug"),
+  tenantName: text("tenant_name"),
+  associationTenantId: varchar("association_tenant_id", { length: 36 }),
+  associationSlug: text("association_slug"),
+  associationName: text("association_name"),
+  userId: varchar("user_id", { length: 36 }),
+  userName: text("user_name"),
+  userEmail: text("user_email"),
+  userRole: text("user_role"),
+  electedOfficialId: varchar("elected_official_id", { length: 36 }),
+  electedOfficialName: text("elected_official_name"),
+  bureauMemberId: varchar("bureau_member_id", { length: 36 }),
+  bureauMemberName: text("bureau_member_name"),
+  superadminId: varchar("superadmin_id", { length: 36 }),
+  superadminEmail: text("superadmin_email"),
+  actionDetails: text("action_details"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;
+
+export const blockedDevices = pgTable("blocked_devices", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  deviceId: text("device_id").notNull().unique(),
+  reason: text("reason"),
+  blockedBy: varchar("blocked_by", { length: 36 }),
+  blockedByEmail: text("blocked_by_email"),
+  lastIpAddress: text("last_ip_address"),
+  lastUserAgent: text("last_user_agent"),
+  lastTenantName: text("last_tenant_name"),
+  lastUserName: text("last_user_name"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertBlockedDeviceSchema = createInsertSchema(blockedDevices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertBlockedDevice = z.infer<typeof insertBlockedDeviceSchema>;
+export type BlockedDevice = typeof blockedDevices.$inferSelect;
