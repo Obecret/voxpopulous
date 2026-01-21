@@ -10355,6 +10355,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!firstName || !lastName || !fn) {
         return res.status(400).json({ error: "Prenom, nom et fonction sont requis" });
       }
+      const normalizedEmail = email ? email.toLowerCase().trim() : null;
       const elu = await storage.createElectedOfficial({
         tenantId: tenant.id,
         firstName,
@@ -10362,7 +10363,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         function: fn,
         photoUrl: photoUrl || null,
         photoObjectPath: photoObjectPath || null,
-        email: email || null,
+        email: normalizedEmail,
         bio: bio || null,
         displayOrder: displayOrder || 0,
       });
@@ -10376,8 +10377,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
           await storage.setElectedOfficialInvitation(elu.id, token, expiresAt);
           
-          // Always use the custom production domain for emails
-          const baseUrl = 'https://voxpopulous.fr';
+          // Use production domain for production, request host for development
+          const baseUrl = process.env.NODE_ENV === 'production' 
+            ? 'https://voxpopulous.fr'
+            : `${req.protocol}://${req.get('host')}`;
           const inviteLink = `${baseUrl}/elus/setup-password?token=${token}`;
           
           const inviteContent = `
@@ -10433,13 +10436,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ error: "Elu non trouve" });
       }
       const { firstName, lastName, function: fn, photoUrl, photoObjectPath, email, bio, displayOrder, isActive } = req.body;
+      const normalizedEmail = email ? email.toLowerCase().trim() : email;
       const updated = await storage.updateElectedOfficial(req.params.id, {
         firstName,
         lastName,
         function: fn,
         photoUrl,
         photoObjectPath,
-        email,
+        email: normalizedEmail,
         bio,
         displayOrder,
         isActive,
@@ -10575,8 +10579,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
       await storage.setElectedOfficialInvitation(req.params.id, token, expiresAt);
       
-      // Send email with invitation link - always use the custom production domain
-      const baseUrl = 'https://voxpopulous.fr';
+      // Use production domain for production, request host for development
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://voxpopulous.fr'
+        : `${req.protocol}://${req.get('host')}`;
       const inviteLink = `${baseUrl}/elus/setup-password?token=${token}`;
       
       try {
@@ -10821,7 +10827,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!email || !password) {
         return res.status(400).json({ error: "Email et mot de passe requis" });
       }
-      const official = await storage.getElectedOfficialByEmail(email);
+      const official = await storage.getElectedOfficialByEmail(email.toLowerCase().trim());
       if (!official || !official.passwordHash) {
         return res.status(401).json({ error: "Email ou mot de passe incorrect" });
       }
