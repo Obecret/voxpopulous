@@ -1261,8 +1261,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         expiresAt
       });
 
-      // Build reset URL
-      const baseUrl = 'https://voxpopulous.fr';
+      // Build reset URL - use request host in development, production domain otherwise
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://voxpopulous.fr'
+        : `${req.protocol}://${req.get('host')}`;
       const resetUrl = `${baseUrl}/structures/${tenant.slug}/admin/reset-password?token=${token}`;
 
       // Send email
@@ -1371,8 +1373,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         expiresAt
       });
 
-      // Build reset URL - always use the custom production domain
-      const baseUrl = 'https://voxpopulous.fr';
+      // Build reset URL - use request host in development, production domain otherwise
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://voxpopulous.fr'
+        : `${req.protocol}://${req.get('host')}`;
       const resetUrl = `${baseUrl}/structures/${tenant.slug}/admin/reset-password?token=${token}`;
 
       // Send email
@@ -10404,8 +10408,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         expiresAt
       });
       
-      // Build reset URL - always use the custom production domain
-      const baseUrl = 'https://voxpopulous.fr';
+      // Build reset URL - use request host in development, production domain otherwise
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://voxpopulous.fr'
+        : `${req.protocol}://${req.get('host')}`;
       const resetUrl = `${baseUrl}/structures/${tenantSlug}/admin/reset-password?token=${token}`;
       
       const userName = adminUser ? adminUser.email : (electedOfficial?.firstName + " " + electedOfficial?.lastName);
