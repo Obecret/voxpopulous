@@ -12,10 +12,10 @@ import { StatusBadge } from "@/components/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Filter, Eye, MapPin, Loader2 } from "lucide-react";
+import { Search, Filter, Eye, MapPin, Loader2, List, Map } from "lucide-react";
 import type { Association, AssociationUser, AssociationIncident } from "@shared/schema";
 import { INCIDENT_CATEGORIES } from "@shared/schema";
-import { LocationDisplay } from "@/components/location-picker";
+import { LocationDisplay, MultiMarkerMap, INCIDENT_STATUS_COLORS } from "@/components/location-picker";
 
 type SafeAssociationUser = Omit<AssociationUser, "passwordHash">;
 
@@ -28,6 +28,7 @@ export default function AssociationAdminIncidents() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIncident, setSelectedIncident] = useState<AssociationIncident | null>(null);
   const [newStatus, setNewStatus] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   const { data, isLoading: userLoading, error } = useQuery<{ user: SafeAssociationUser; association: Association }>({
     queryKey: ["/api/tenants", params.slug, "associations", params.assocSlug, "me"],
@@ -140,6 +141,26 @@ export default function AssociationAdminIncidents() {
                   ))}
                 </SelectContent>
               </Select>
+              <div className="flex items-center bg-muted/50 rounded-lg p-1 gap-1">
+                <Button
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("list")}
+                  data-testid="button-view-list"
+                  title="Vue liste"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "map" ? "default" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("map")}
+                  data-testid="button-view-map"
+                  title="Vue carte"
+                >
+                  <Map className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -152,6 +173,48 @@ export default function AssociationAdminIncidents() {
             ) : filteredIncidents.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">Aucun signalement trouve</p>
+              </div>
+            ) : viewMode === "map" ? (
+              <div className="space-y-4">
+                <MultiMarkerMap
+                  markers={filteredIncidents.map(incident => ({
+                    id: incident.id,
+                    latitude: incident.latitude,
+                    longitude: incident.longitude,
+                    title: incident.title,
+                    status: incident.status,
+                  }))}
+                  height="500px"
+                  onMarkerClick={(id) => {
+                    const incident = filteredIncidents.find(i => i.id === id);
+                    if (incident) {
+                      setSelectedIncident(incident);
+                      setNewStatus(incident.status);
+                    }
+                  }}
+                />
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: INCIDENT_STATUS_COLORS.NEW }}></span>
+                    Nouveau
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: INCIDENT_STATUS_COLORS.ACKNOWLEDGED }}></span>
+                    Pris en compte
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: INCIDENT_STATUS_COLORS.IN_PROGRESS }}></span>
+                    En cours
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: INCIDENT_STATUS_COLORS.RESOLVED }}></span>
+                    Resolu
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: INCIDENT_STATUS_COLORS.REJECTED }}></span>
+                    Rejete
+                  </span>
+                </div>
               </div>
             ) : (
               <div className="rounded-md border">
