@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAnonymousId } from "@/hooks/use-anonymous-id";
 import { ArrowLeft, Loader2, AlertTriangle, CheckCircle2, Camera, X, ImageIcon } from "lucide-react";
@@ -140,6 +140,7 @@ export default function NewIncident() {
       return response.json();
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants", params.slug, "incidents"] });
       setSuccess({ publicToken: data.publicToken });
     },
     onError: () => {

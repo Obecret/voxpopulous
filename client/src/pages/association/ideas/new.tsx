@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2, Lightbulb, CheckCircle2 } from "lucide-react";
 import type { Tenant, Association } from "@shared/schema";
@@ -58,6 +58,9 @@ export default function AssociationNewIdea() {
       return response.json();
     },
     onSuccess: () => {
+      if (association?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/associations", association.id, "ideas"] });
+      }
       setSuccess(true);
     },
     onError: () => {

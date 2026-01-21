@@ -4070,34 +4070,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Enhanced profile fetching with domains
-  async getElectedOfficialWithDomains(id: string): Promise<{ official: ElectedOfficial; domains: TenantInterventionDomain[] } | undefined> {
+  async getElectedOfficialWithDomains(id: string): Promise<{ official: ElectedOfficial; domains: GlobalMunicipalityDomain[] } | undefined> {
     const official = await this.getElectedOfficialById(id);
     if (!official) return undefined;
     
     const domainLinks = await db.select().from(electedOfficialDomains)
       .where(eq(electedOfficialDomains.electedOfficialId, id));
     
-    const domains: TenantInterventionDomain[] = [];
+    const domains: GlobalMunicipalityDomain[] = [];
     for (const link of domainLinks) {
-      const [domain] = await db.select().from(tenantInterventionDomains)
-        .where(eq(tenantInterventionDomains.id, link.domainId));
+      const [domain] = await db.select().from(globalMunicipalityDomains)
+        .where(eq(globalMunicipalityDomains.id, link.domainId));
       if (domain) domains.push(domain);
     }
     
     return { official, domains };
   }
 
-  async getBureauMemberWithDomains(id: string): Promise<{ member: BureauMember; domains: AssociationInterventionDomain[] } | undefined> {
+  async getBureauMemberWithDomains(id: string): Promise<{ member: BureauMember; domains: GlobalAssociationDomain[] } | undefined> {
     const member = await this.getBureauMemberById(id);
     if (!member) return undefined;
     
     const domainLinks = await db.select().from(bureauMemberDomains)
       .where(eq(bureauMemberDomains.bureauMemberId, id));
     
-    const domains: AssociationInterventionDomain[] = [];
+    const domains: GlobalAssociationDomain[] = [];
     for (const link of domainLinks) {
-      const [domain] = await db.select().from(associationInterventionDomains)
-        .where(eq(associationInterventionDomains.id, link.domainId));
+      const [domain] = await db.select().from(globalAssociationDomains)
+        .where(eq(globalAssociationDomains.id, link.domainId));
       if (domain) domains.push(domain);
     }
     
