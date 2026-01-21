@@ -16,9 +16,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { ArrowLeft, Mail, MessageCircle, Send, Loader2, Building2, Briefcase } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Tenant, ElectedOfficial, TenantInterventionDomain } from "@shared/schema";
+import type { Tenant, ElectedOfficial, GlobalMunicipalityDomain } from "@shared/schema";
 
-type ElectedOfficialWithDomains = ElectedOfficial & { domains?: TenantInterventionDomain[] };
+type ElectedOfficialWithDomains = ElectedOfficial & { domains?: GlobalMunicipalityDomain[] };
 
 function getPhotoUrl(photoObjectPath: string | null | undefined, photoUrl: string | null | undefined): string | undefined {
   if (photoObjectPath) {
