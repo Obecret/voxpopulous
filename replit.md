@@ -53,6 +53,12 @@ The platform is a multi-tenant SaaS, identified by a unique URL slug (`/t/:slug/
 - **Dynamic Function Management**: System for managing lists of elected official functions (`elu_functions`) and bureau member functions (`bureau_member_functions`), configurable by superadmins and dynamically loaded.
 - **Association-Specific UI Terminology**: User interface (sidebar, titles, buttons, placeholders) dynamically adapts terminology for associations versus municipalities.
 - **Billing Proration Improvements**: Proration calculations are billing-cycle aware (monthly/yearly contracts) and support mandate subscriptions.
+- **Global Domain Management**: Centralized domain management system for categorizing content across all tenants:
+    - Two separate domain databases: `globalMunicipalityDomains` for municipalities/EPCI and `globalAssociationDomains` for associations.
+    - Superadmin backoffice for CRUD operations on domains with color selection and ordering.
+    - Public API endpoints: `/api/public/municipality-domains` and `/api/public/association-domains`.
+    - Domain categorization for elected officials, bureau members, ideas, incidents, and meetings.
+    - Forms (ideas, incidents, meetings) use global domains for categorization via select dropdowns.
 
 ## External Dependencies
 
