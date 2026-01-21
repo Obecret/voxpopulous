@@ -1141,19 +1141,19 @@ export const associationInterventionDomains = pgTable("association_intervention_
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Many-to-many: Elected Officials <-> Tenant Intervention Domains
+// Many-to-many: Elected Officials <-> Global Municipality Domains
 export const electedOfficialDomains = pgTable("elected_official_domains", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   electedOfficialId: varchar("elected_official_id", { length: 36 }).notNull().references(() => tenantElectedOfficials.id),
-  domainId: varchar("domain_id", { length: 36 }).notNull().references(() => tenantInterventionDomains.id),
+  domainId: varchar("domain_id", { length: 36 }).notNull().references(() => globalMunicipalityDomains.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-// Many-to-many: Bureau Members <-> Association Intervention Domains
+// Many-to-many: Bureau Members <-> Global Association Domains
 export const bureauMemberDomains = pgTable("bureau_member_domains", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   bureauMemberId: varchar("bureau_member_id", { length: 36 }).notNull().references(() => bureauMembers.id),
-  domainId: varchar("domain_id", { length: 36 }).notNull().references(() => associationInterventionDomains.id),
+  domainId: varchar("domain_id", { length: 36 }).notNull().references(() => globalAssociationDomains.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

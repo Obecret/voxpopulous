@@ -19,7 +19,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, Pencil, Trash2, UserCircle, Loader2, GripVertical, Tags, Mail, Shield, Key } from "lucide-react";
 import { PhotoUpload } from "@/components/photo-upload";
-import type { Tenant, User, ElectedOfficial, TenantInterventionDomain, ElectedOfficialDomain, AdminMenuCode, EluFunction, BureauMemberFunction } from "@shared/schema";
+import type { Tenant, User, ElectedOfficial, GlobalMunicipalityDomain, GlobalAssociationDomain, AdminMenuCode, EluFunction, BureauMemberFunction } from "@shared/schema";
 import { ADMIN_MENU_CODES } from "@shared/schema";
 
 const MENU_LABELS: Record<AdminMenuCode, string> = {
@@ -87,17 +87,24 @@ export default function AdminElus() {
     retry: false,
   });
 
-  const { data: availableDomains = [] } = useQuery<TenantInterventionDomain[]>({
-    queryKey: ["/api/tenants", params.slug, "admin", "domains"],
-    enabled: !!user,
-  });
-
   const { data: elus = [], isLoading } = useQuery<ElectedOfficial[]>({
     queryKey: ["/api/tenants", params.slug, "admin", "elus"],
     enabled: !!user,
   });
 
   const isAssociation = tenant?.tenantType === "ASSOCIATION";
+
+  const { data: municipalityDomains = [] } = useQuery<GlobalMunicipalityDomain[]>({
+    queryKey: ["/api/public/municipality-domains"],
+    enabled: !isAssociation && !!tenant,
+  });
+
+  const { data: associationDomains = [] } = useQuery<GlobalAssociationDomain[]>({
+    queryKey: ["/api/public/association-domains"],
+    enabled: isAssociation && !!tenant,
+  });
+
+  const availableDomains = isAssociation ? associationDomains : municipalityDomains;
   const memberLabel = isAssociation ? "membre" : "elu";
   const MemberLabel = isAssociation ? "Membre" : "Elu";
   const memberLabelPlural = isAssociation ? "membres" : "elus";
@@ -244,7 +251,7 @@ export default function AdminElus() {
     try {
       const response = await fetch(`/api/tenants/${params.slug}/admin/elus/${elu.id}/domains`, { credentials: "include" });
       if (response.ok) {
-        const domains: TenantInterventionDomain[] = await response.json();
+        const domains: { id: string }[] = await response.json();
         setSelectedDomainIds(domains.map(d => d.id));
       }
     } catch (e) {
