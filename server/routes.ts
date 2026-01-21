@@ -996,6 +996,147 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ==========================================
+  // GLOBAL MUNICIPALITY DOMAINS MANAGEMENT
+  // ==========================================
+  app.get("/api/superadmin/settings/municipality-domains", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const domains = await storage.getAllGlobalMunicipalityDomains();
+      res.json(domains);
+    } catch (error) {
+      console.error("Get municipality domains error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/superadmin/settings/municipality-domains", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const { name, description, color, displayOrder, isActive } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Nom requis" });
+      }
+      const domain = await storage.createGlobalMunicipalityDomain({ name, description, color, displayOrder, isActive });
+      res.json(domain);
+    } catch (error) {
+      console.error("Create municipality domain error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.put("/api/superadmin/settings/municipality-domains/:id", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const { name, description, color, displayOrder, isActive } = req.body;
+      const domain = await storage.updateGlobalMunicipalityDomain(req.params.id, { name, description, color, displayOrder, isActive });
+      res.json(domain);
+    } catch (error) {
+      console.error("Update municipality domain error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.delete("/api/superadmin/settings/municipality-domains/:id", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      await storage.deleteGlobalMunicipalityDomain(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete municipality domain error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // ==========================================
+  // GLOBAL ASSOCIATION DOMAINS MANAGEMENT
+  // ==========================================
+  app.get("/api/superadmin/settings/association-domains", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const domains = await storage.getAllGlobalAssociationDomains();
+      res.json(domains);
+    } catch (error) {
+      console.error("Get association domains error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/superadmin/settings/association-domains", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const { name, description, color, displayOrder, isActive } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Nom requis" });
+      }
+      const domain = await storage.createGlobalAssociationDomain({ name, description, color, displayOrder, isActive });
+      res.json(domain);
+    } catch (error) {
+      console.error("Create association domain error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.put("/api/superadmin/settings/association-domains/:id", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const { name, description, color, displayOrder, isActive } = req.body;
+      const domain = await storage.updateGlobalAssociationDomain(req.params.id, { name, description, color, displayOrder, isActive });
+      res.json(domain);
+    } catch (error) {
+      console.error("Update association domain error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.delete("/api/superadmin/settings/association-domains/:id", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      await storage.deleteGlobalAssociationDomain(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete association domain error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Public endpoints for global domains (for tenant admin pages)
+  app.get("/api/public/municipality-domains", async (req, res) => {
+    try {
+      const domains = await storage.getActiveGlobalMunicipalityDomains();
+      res.json(domains);
+    } catch (error) {
+      console.error("Get public municipality domains error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.get("/api/public/association-domains", async (req, res) => {
+    try {
+      const domains = await storage.getActiveGlobalAssociationDomains();
+      res.json(domains);
+    } catch (error) {
+      console.error("Get public association domains error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   // Superadmin accounts management
   app.get("/api/superadmin/admins", async (req, res) => {
     if (!req.session.superadminId) {

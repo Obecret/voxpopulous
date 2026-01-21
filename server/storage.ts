@@ -63,6 +63,8 @@ import {
   type TenantDocumentNumberingConfig, type InsertTenantDocumentNumberingConfig,
   type EluFunction, type InsertEluFunction,
   type BureauMemberFunction, type InsertBureauMemberFunction,
+  type GlobalMunicipalityDomain, type InsertGlobalMunicipalityDomain,
+  type GlobalAssociationDomain, type InsertGlobalAssociationDomain,
   type ChatThread, type InsertChatThread,
   type ChatMessage, type InsertChatMessage,
   type ActivityLog, type InsertActivityLog,
@@ -79,6 +81,7 @@ import {
   auditLogs,
   documentNumberFormats, serviceCodes, tenantServiceCodes, tenantDocumentNumberingConfig,
   legalEntitySettings, eluFunctions, bureauMemberFunctions,
+  globalMunicipalityDomains, globalAssociationDomains,
   chatThreads, chatMessages,
   activityLogs, blockedDevices
 } from "@shared/schema";
@@ -3829,6 +3832,72 @@ export class DatabaseStorage implements IStorage {
   async deleteBureauMemberFunction(id: string): Promise<boolean> {
     await db.delete(bureauMemberFunctions)
       .where(eq(bureauMemberFunctions.id, id));
+    return true;
+  }
+
+  // =====================================================
+  // GLOBAL MUNICIPALITY DOMAINS
+  // =====================================================
+  async getActiveGlobalMunicipalityDomains(): Promise<GlobalMunicipalityDomain[]> {
+    return db.select().from(globalMunicipalityDomains)
+      .where(eq(globalMunicipalityDomains.isActive, true))
+      .orderBy(asc(globalMunicipalityDomains.displayOrder));
+  }
+
+  async getAllGlobalMunicipalityDomains(): Promise<GlobalMunicipalityDomain[]> {
+    return db.select().from(globalMunicipalityDomains)
+      .orderBy(asc(globalMunicipalityDomains.displayOrder));
+  }
+
+  async createGlobalMunicipalityDomain(domain: InsertGlobalMunicipalityDomain): Promise<GlobalMunicipalityDomain> {
+    const [created] = await db.insert(globalMunicipalityDomains).values(domain).returning();
+    return created;
+  }
+
+  async updateGlobalMunicipalityDomain(id: string, data: Partial<InsertGlobalMunicipalityDomain>): Promise<GlobalMunicipalityDomain | undefined> {
+    const [updated] = await db.update(globalMunicipalityDomains)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(globalMunicipalityDomains.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteGlobalMunicipalityDomain(id: string): Promise<boolean> {
+    await db.delete(globalMunicipalityDomains)
+      .where(eq(globalMunicipalityDomains.id, id));
+    return true;
+  }
+
+  // =====================================================
+  // GLOBAL ASSOCIATION DOMAINS
+  // =====================================================
+  async getActiveGlobalAssociationDomains(): Promise<GlobalAssociationDomain[]> {
+    return db.select().from(globalAssociationDomains)
+      .where(eq(globalAssociationDomains.isActive, true))
+      .orderBy(asc(globalAssociationDomains.displayOrder));
+  }
+
+  async getAllGlobalAssociationDomains(): Promise<GlobalAssociationDomain[]> {
+    return db.select().from(globalAssociationDomains)
+      .orderBy(asc(globalAssociationDomains.displayOrder));
+  }
+
+  async createGlobalAssociationDomain(domain: InsertGlobalAssociationDomain): Promise<GlobalAssociationDomain> {
+    const [created] = await db.insert(globalAssociationDomains).values(domain).returning();
+    return created;
+  }
+
+  async updateGlobalAssociationDomain(id: string, data: Partial<InsertGlobalAssociationDomain>): Promise<GlobalAssociationDomain | undefined> {
+    const [updated] = await db.update(globalAssociationDomains)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(globalAssociationDomains.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteGlobalAssociationDomain(id: string): Promise<boolean> {
+    await db.delete(globalAssociationDomains)
+      .where(eq(globalAssociationDomains.id, id));
     return true;
   }
 
