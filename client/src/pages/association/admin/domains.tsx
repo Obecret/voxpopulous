@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Pencil, Trash2, Tags, Loader2 } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Tags, Loader2, Wand2 } from "lucide-react";
 import type { Association, AssociationUser, AssociationInterventionDomain } from "@shared/schema";
 
 type SafeAssociationUser = Omit<AssociationUser, "passwordHash">;
@@ -102,6 +102,29 @@ export default function AssociationAdminDomains() {
     },
   });
 
+  const initializeDefaultsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/associations/${association?.id}/admin/domains/initialize-defaults`);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/associations", association?.id, "admin", "domains"] });
+      if (data.created > 0) {
+        toast({ 
+          title: "Categories initialisees", 
+          description: `${data.created} domaine(s) ajoute(s)${data.skipped > 0 ? `, ${data.skipped} deja existant(s)` : ""}.` 
+        });
+      } else {
+        toast({ 
+          title: "Deja initialise", 
+          description: "Toutes les categories par defaut existent deja." 
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Erreur", description: error.message || "Une erreur est survenue.", variant: "destructive" });
+    },
+  });
+
   const resetForm = () => {
     setFormData({ name: "", description: "", color: "#3b82f6", displayOrder: 0 });
   };
@@ -139,10 +162,25 @@ export default function AssociationAdminDomains() {
               Gerez les domaines d'intervention des membres du bureau.
             </p>
           </div>
-          <Button onClick={() => { resetForm(); setIsCreateOpen(true); }} data-testid="button-create-assoc-domain">
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter un domaine
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => initializeDefaultsMutation.mutate()}
+              disabled={initializeDefaultsMutation.isPending}
+              data-testid="button-init-assoc-domains"
+            >
+              {initializeDefaultsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4 mr-2" />
+              )}
+              Initialiser les categories
+            </Button>
+            <Button onClick={() => { resetForm(); setIsCreateOpen(true); }} data-testid="button-create-assoc-domain">
+              <Plus className="h-4 w-4 mr-2" />
+              Ajouter un domaine
+            </Button>
+          </div>
         </div>
 
         <Card>

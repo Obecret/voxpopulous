@@ -10903,7 +10903,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // Admin: Initialize default intervention domains from IDEA_CATEGORIES
+  // Admin: Initialize default intervention domains from global municipality domains
   app.post("/api/tenants/:slug/admin/domains/initialize-defaults", async (req, res) => {
     try {
       const tenant = await storage.getTenantBySlug(req.params.slug);
@@ -10919,21 +10919,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(403).json({ error: "Permission denied" });
       }
       
-      // Default categories with colors
-      const defaultDomains = [
-        { name: "Urbanisme", color: "#3b82f6" },
-        { name: "Transport", color: "#22c55e" },
-        { name: "Environnement", color: "#10b981" },
-        { name: "Culture", color: "#a855f7" },
-        { name: "Sport", color: "#f97316" },
-        { name: "Education", color: "#eab308" },
-        { name: "Social", color: "#ec4899" },
-        { name: "Economie", color: "#06b6d4" },
-        { name: "Vie associative", color: "#8b5cf6" },
-        { name: "Evenements", color: "#f59e0b" },
-        { name: "Communication", color: "#3b82f6" },
-        { name: "Autre", color: "#ef4444" },
-      ];
+      // Fetch global municipality domains configured by superadmin
+      const globalDomains = await storage.getAllGlobalMunicipalityDomains();
       
       // Get existing domains for this tenant
       const existingDomains = await storage.getTenantInterventionDomains(tenant.id);
@@ -10945,12 +10932,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         ? Math.max(...existingDomains.map(d => d.displayOrder)) + 1 
         : 0;
       
-      for (const domainData of defaultDomains) {
+      for (const domainData of globalDomains) {
         if (!existingNames.includes(domainData.name.toLowerCase())) {
           const domain = await storage.createTenantInterventionDomain({
             tenantId: tenant.id,
             name: domainData.name,
-            description: null,
+            description: domainData.description,
             color: domainData.color,
             displayOrder: displayOrder++,
           });
@@ -10961,7 +10948,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json({ 
         success: true, 
         created: createdDomains.length,
-        skipped: defaultDomains.length - createdDomains.length,
+        skipped: globalDomains.length - createdDomains.length,
         domains: createdDomains 
       });
     } catch (error) {
@@ -11276,6 +11263,55 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json({ success: true });
     } catch (error) {
       console.error("Delete association domain error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Admin: Initialize default intervention domains from global association domains
+  app.post("/api/associations/:associationId/admin/domains/initialize-defaults", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const associationId = req.params.associationId;
+      if (associationId !== req.session.associationId) {
+        return res.status(403).json({ error: "Acces refuse" });
+      }
+      
+      // Fetch global association domains configured by superadmin
+      const globalDomains = await storage.getAllGlobalAssociationDomains();
+      
+      // Get existing domains for this association
+      const existingDomains = await storage.getAssociationInterventionDomains(associationId);
+      const existingNames = existingDomains.map(d => d.name.toLowerCase());
+      
+      // Create only domains that don't exist yet
+      const createdDomains = [];
+      let displayOrder = existingDomains.length > 0 
+        ? Math.max(...existingDomains.map(d => d.displayOrder)) + 1 
+        : 0;
+      
+      for (const domainData of globalDomains) {
+        if (!existingNames.includes(domainData.name.toLowerCase())) {
+          const domain = await storage.createAssociationInterventionDomain({
+            associationId: associationId,
+            name: domainData.name,
+            description: domainData.description,
+            color: domainData.color,
+            displayOrder: displayOrder++,
+          });
+          createdDomains.push(domain);
+        }
+      }
+      
+      res.json({ 
+        success: true, 
+        created: createdDomains.length,
+        skipped: globalDomains.length - createdDomains.length,
+        domains: createdDomains 
+      });
+    } catch (error) {
+      console.error("Initialize association default domains error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
