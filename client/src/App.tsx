@@ -57,6 +57,8 @@ import MeetingsList from "@/pages/tenant/meetings/list";
 import MeetingDetail from "@/pages/tenant/meetings/detail";
 import EventsList from "@/pages/tenant/events/list";
 import EventDetail from "@/pages/tenant/events/detail";
+import AssociationEventsList from "@/pages/association/events/list";
+import AssociationEventDetail from "@/pages/association/events/detail";
 import AdminLogin from "@/pages/tenant/admin/login";
 import AdminDashboard from "@/pages/tenant/admin/dashboard";
 import AdminIdeas from "@/pages/tenant/admin/ideas";
@@ -200,6 +202,8 @@ function Router() {
       <Route path="/structures/:slug/:assocSlug/incidents/new" component={AssociationNewIncident} />
       <Route path="/structures/:slug/:assocSlug/meetings" component={AssociationMeetingsList} />
       <Route path="/structures/:slug/:assocSlug/meetings/:id" component={AssociationMeetingDetail} />
+      <Route path="/structures/:slug/:assocSlug/events" component={AssociationEventsList} />
+      <Route path="/structures/:slug/:assocSlug/events/:eventId" component={AssociationEventDetail} />
       <Route path="/structures/:slug/:assocSlug/bureau" component={AssociationBureau} />
       <Route path="/structures/:slug/:assocSlug/bureau/:id" component={BureauMemberProfile} />
       <Route path="/structures/:slug/:assocSlug" component={AssociationLanding} />

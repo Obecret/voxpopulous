@@ -10324,6 +10324,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Public: Get association events
+  app.get("/api/public/associations/:associationId/events", async (req, res) => {
+    try {
+      const events = await storage.getAssociationEvents(req.params.associationId, false);
+      res.json(events);
+    } catch (error) {
+      console.error("Get public association events error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Public: Get single association event
+  app.get("/api/public/associations/:associationId/events/:eventId", async (req, res) => {
+    try {
+      const event = await storage.getAssociationEventById(req.params.eventId);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Get public association event error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   // Public association event images route
   app.get("/api/public/associations/:associationId/events/:eventId/images", async (req, res) => {
     try {
