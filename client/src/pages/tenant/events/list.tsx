@@ -25,7 +25,7 @@ export default function EventsList() {
     queryKey: ["/api/tenants", params.slug, "events"],
   });
 
-  const { data: eventTypes } = useQuery<EventType[]>({
+  const { data: eventTypes } = useQuery<GlobalEventType[]>({
     queryKey: ["/api/public/event-types"],
   });
 
@@ -74,17 +74,29 @@ export default function EventsList() {
       >
         <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-            <div 
-              className="flex items-center justify-center w-16 h-16 rounded-lg shrink-0"
-              style={{ 
-                backgroundColor: eventType?.color ? `${eventType.color}20` : undefined,
-                color: eventType?.color || undefined
-              }}
-            >
-              <div className="text-center">
-                <div className="text-2xl font-bold leading-none">{eventDate.getDate()}</div>
-                <div className="text-xs uppercase mt-0.5">
-                  {eventDate.toLocaleDateString("fr-FR", { month: "short" })}
+            <div className="flex items-start gap-3 shrink-0">
+              {event.posterUrl && (
+                <a href={event.posterUrl} target="_blank" rel="noopener noreferrer" className="block shrink-0">
+                  <img 
+                    src={event.posterUrl} 
+                    alt={`Affiche ${event.title}`}
+                    className="w-12 h-16 object-cover rounded-md shadow-sm hover:shadow-md transition-shadow"
+                    data-testid={`img-poster-${event.id}`}
+                  />
+                </a>
+              )}
+              <div 
+                className="flex items-center justify-center w-16 h-16 rounded-lg shrink-0"
+                style={{ 
+                  backgroundColor: eventType?.color ? `${eventType.color}20` : undefined,
+                  color: eventType?.color || undefined
+                }}
+              >
+                <div className="text-center">
+                  <div className="text-2xl font-bold leading-none">{eventDate.getDate()}</div>
+                  <div className="text-xs uppercase mt-0.5">
+                    {eventDate.toLocaleDateString("fr-FR", { month: "short" })}
+                  </div>
                 </div>
               </div>
             </div>
