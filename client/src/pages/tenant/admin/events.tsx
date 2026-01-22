@@ -18,9 +18,10 @@ import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminSession } from "@/hooks/use-admin-session";
-import { Search, Plus, Eye, MapPin, Calendar, Loader2, Lock, Archive, ArchiveRestore, Ticket, Image, ExternalLink } from "lucide-react";
+import { Search, Plus, Eye, MapPin, Calendar, Loader2, Lock, Archive, ArchiveRestore, Ticket, Image, ExternalLink, Upload, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { ObjectUploader } from "@/components/ObjectUploader";
 import type { TenantEvent, GlobalMunicipalityDomain, GlobalEventType } from "@shared/schema";
 
 const eventFormSchema = z.object({
@@ -47,6 +48,7 @@ export default function AdminEvents() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<TenantEvent | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
 
   const { data: events, isLoading } = useQuery<TenantEvent[]>({
     queryKey: ["/api/tenants", params.slug, "admin", "events", { showArchived }],
@@ -88,8 +90,8 @@ export default function AdminEvents() {
   const watchIsMultiDay = form.watch("isMultiDay");
 
   const createEventMutation = useMutation({
-    mutationFn: async (data: EventForm) => {
-      return apiRequest("POST", `/api/tenants/${params.slug}/admin/events`, {
+    mutationFn: async (data: EventForm & { images?: string[] }) => {
+      const response = await apiRequest("POST", `/api/tenants/${params.slug}/admin/events`, {
         title: data.title,
         description: data.description || null,
         eventTypeId: data.eventTypeId,
@@ -103,6 +105,16 @@ export default function AdminEvents() {
         capacity: data.capacity || null,
         status: "SCHEDULED",
       });
+      const event = await response.json();
+      if (data.images && data.images.length > 0) {
+        for (let i = 0; i < data.images.length; i++) {
+          await apiRequest("POST", `/api/tenants/${params.slug}/admin/events/${event.id}/images`, {
+            imageUrl: data.images[i],
+            sortOrder: i,
+          });
+        }
+      }
+      return event;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
@@ -113,6 +125,7 @@ export default function AdminEvents() {
           query.queryKey[3] === "events"
       });
       setShowNewDialog(false);
+      setUploadedImages([]);
       form.reset();
       toast({
         title: "Evenement cree",
@@ -195,7 +208,7 @@ export default function AdminEvents() {
   }) || [];
 
   const onSubmit = (data: EventForm) => {
-    createEventMutation.mutate(data);
+    createEventMutation.mutate({ ...data, images: uploadedImages });
   };
 
   const formatDate = (date: Date | string) => {
@@ -360,224 +373,305 @@ export default function AdminEvents() {
           </CardContent>
         </Card>
 
-        <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-          <DialogContent className="max-w-lg">
+        <Dialog open={showNewDialog} onOpenChange={(open) => {
+          setShowNewDialog(open);
+          if (!open) setUploadedImages([]);
+        }}>
+          <DialogContent 
+            className="max-w-4xl max-h-[85vh] overflow-y-auto"
+            style={selectedEventType?.color ? { 
+              borderTop: `4px solid ${selectedEventType.color}`,
+              background: `linear-gradient(to bottom, ${selectedEventType.color}10 0%, transparent 100px)`
+            } : undefined}
+          >
             <DialogHeader>
-              <DialogTitle>Nouvel evenement</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                {selectedEventType?.color && (
+                  <span 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: selectedEventType.color }}
+                  />
+                )}
+                Nouvel evenement
+              </DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Titre</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Concert de Noel" {...field} data-testid="input-title" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="eventTypeId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type d'evenement</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-event-type">
-                            <SelectValue placeholder="Selectionner un type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {eventTypes.map((type) => (
-                            <SelectItem key={type.id} value={type.id}>
-                              {type.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Description de l'evenement..." 
-                          className="resize-none" 
-                          {...field} 
-                          data-testid="input-description"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {selectedEventType?.hasMultiDay && (
-                  <FormField
-                    control={form.control}
-                    name="isMultiDay"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center gap-2">
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            data-testid="switch-multi-day"
-                          />
-                        </FormControl>
-                        <FormLabel className="!mt-0">Evenement sur plusieurs jours</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{selectedEventType?.hasMultiDay && watchIsMultiDay ? "Date de debut" : "Date"}</FormLabel>
-                        <FormControl>
-                          <Input type="datetime-local" {...field} data-testid="input-start-date" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {selectedEventType?.hasMultiDay && watchIsMultiDay && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
                     <FormField
                       control={form.control}
-                      name="endDate"
+                      name="title"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Date de fin</FormLabel>
+                          <FormLabel>Titre</FormLabel>
                           <FormControl>
-                            <Input type="datetime-local" {...field} data-testid="input-end-date" />
+                            <Input placeholder="Ex: Concert de Noel" {...field} data-testid="input-title" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  )}
-                </div>
 
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Lieu</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Ex: Salle des fetes" {...field} data-testid="input-location" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    <FormField
+                      control={form.control}
+                      name="eventTypeId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Type d'evenement</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-event-type">
+                                <SelectValue placeholder="Selectionner un type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {eventTypes.map((type) => (
+                                <SelectItem key={type.id} value={type.id}>
+                                  <span className="flex items-center gap-2">
+                                    {type.color && (
+                                      <span 
+                                        className="w-2 h-2 rounded-full" 
+                                        style={{ backgroundColor: type.color }}
+                                      />
+                                    )}
+                                    {type.name}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                {domains.length > 0 && (
-                  <FormField
-                    control={form.control}
-                    name="domainId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Domaine</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                    <FormField
+                      control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Lieu</FormLabel>
                           <FormControl>
-                            <SelectTrigger data-testid="select-domain">
-                              <SelectValue placeholder="Selectionner un domaine" />
-                            </SelectTrigger>
+                            <Input placeholder="Ex: Salle des fetes" {...field} data-testid="input-location" />
                           </FormControl>
-                          <SelectContent>
-                            {domains.map((domain) => (
-                              <SelectItem key={domain.id} value={domain.id}>
-                                {domain.name}
-                              </SelectItem>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {selectedEventType?.hasMultiDay && (
+                      <FormField
+                        control={form.control}
+                        name="isMultiDay"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center gap-2">
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="switch-multi-day"
+                              />
+                            </FormControl>
+                            <FormLabel className="!mt-0">Evenement sur plusieurs jours</FormLabel>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="startDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{selectedEventType?.hasMultiDay && watchIsMultiDay ? "Date de debut" : "Date"}</FormLabel>
+                            <FormControl>
+                              <Input type="datetime-local" {...field} data-testid="input-start-date" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {selectedEventType?.hasMultiDay && watchIsMultiDay && (
+                        <FormField
+                          control={form.control}
+                          name="endDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Date de fin</FormLabel>
+                              <FormControl>
+                                <Input type="datetime-local" {...field} data-testid="input-end-date" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {domains.length > 0 && (
+                      <FormField
+                        control={form.control}
+                        name="domainId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Domaine</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-domain">
+                                  <SelectValue placeholder="Selectionner un domaine" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {domains.map((domain) => (
+                                  <SelectItem key={domain.id} value={domain.id}>
+                                    {domain.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {selectedEventType?.hasCapacity && (
+                      <FormField
+                        control={form.control}
+                        name="capacity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Capacite</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number"
+                                placeholder="Nombre de places" 
+                                value={field.value || ""}
+                                onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                data-testid="input-capacity"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {selectedEventType?.hasBookingUrl && (
+                      <FormField
+                        control={form.control}
+                        name="bookingUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>URL de reservation</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="https://..." 
+                                {...field} 
+                                data-testid="input-booking-url"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Description de l'evenement..." 
+                              className="resize-none min-h-[120px]" 
+                              {...field} 
+                              data-testid="input-description"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="space-y-2">
+                      <Label>Photos de l'evenement</Label>
+                      <div className="border rounded-lg p-3 bg-muted/30">
+                        {uploadedImages.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2 mb-3">
+                            {uploadedImages.map((url, index) => (
+                              <div key={index} className="relative group">
+                                <img 
+                                  src={url} 
+                                  alt={`Image ${index + 1}`} 
+                                  className="w-full h-20 object-cover rounded-md"
+                                />
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="destructive"
+                                  className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => setUploadedImages(prev => prev.filter((_, i) => i !== index))}
+                                  data-testid={`button-remove-image-${index}`}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
                             ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
+                          </div>
+                        )}
+                        <ObjectUploader
+                          onGetUploadUrl={async () => {
+                            const response = await apiRequest("POST", `/api/tenants/${params.slug}/admin/photos/upload-url`);
+                            return response.json();
+                          }}
+                          onComplete={(objectPath) => {
+                            setUploadedImages(prev => [...prev, objectPath]);
+                          }}
+                          accept="image/*"
+                          compressImages={true}
+                          maxImageWidth={1920}
+                          maxImageHeight={1080}
+                        >
+                          <Button type="button" variant="outline" size="sm" className="w-full" data-testid="button-upload-image">
+                            <Upload className="h-4 w-4 mr-2" />
+                            Ajouter une photo
+                          </Button>
+                        </ObjectUploader>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Ajoutez des photos pour illustrer l'evenement (affiche, lieu, etc.)
+                        </p>
+                      </div>
+                    </div>
 
-                {selectedEventType?.hasCapacity && (
-                  <FormField
-                    control={form.control}
-                    name="capacity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Capacite</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number"
-                            placeholder="Nombre de places" 
-                            value={field.value || ""}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-capacity"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                    {selectedEventType?.hasPoster && (
+                      <FormField
+                        control={form.control}
+                        name="posterUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>URL de l'affiche (externe)</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="https://..." 
+                                {...field} 
+                                data-testid="input-poster-url"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
-                )}
-
-                {selectedEventType?.hasPoster && (
-                  <FormField
-                    control={form.control}
-                    name="posterUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>URL de l'affiche</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="https://..." 
-                            {...field} 
-                            data-testid="input-poster-url"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {selectedEventType?.hasBookingUrl && (
-                  <FormField
-                    control={form.control}
-                    name="bookingUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>URL de reservation</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="https://..." 
-                            {...field} 
-                            data-testid="input-booking-url"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
+                  </div>
+                </div>
 
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setShowNewDialog(false)}>
