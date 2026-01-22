@@ -38,11 +38,11 @@ import { StatusBadge } from "@/components/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Pencil, Calendar, MapPin, Loader2, Archive, ArchiveRestore, Ticket, Image, ExternalLink, Upload, X } from "lucide-react";
+import { Search, Plus, Pencil, Calendar, MapPin, Loader2, Archive, ArchiveRestore, Ticket, Image, ExternalLink, Upload, X, Users, Mail, Phone, User } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import type { Association, AssociationUser, AssociationEvent, GlobalAssociationDomain, GlobalEventType } from "@shared/schema";
+import type { Association, AssociationUser, AssociationEvent, GlobalAssociationDomain, GlobalEventType, AssociationEventRegistration } from "@shared/schema";
 
 type SafeAssociationUser = Omit<AssociationUser, "passwordHash">;
 
@@ -73,6 +73,7 @@ export default function AssociationAdminEvents() {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [editImages, setEditImages] = useState<string[]>([]);
   const [originalEditImages, setOriginalEditImages] = useState<string[]>([]);
+  const [showRegistrations, setShowRegistrations] = useState<AssociationEvent | null>(null);
 
   const { data, isLoading: userLoading, error } = useQuery<{ user: SafeAssociationUser; association: Association }>({
     queryKey: ["/api/tenants", params.slug, "associations", params.assocSlug, "me"],
@@ -95,6 +96,17 @@ export default function AssociationAdminEvents() {
 
   const { data: eventTypes = [] } = useQuery<GlobalEventType[]>({
     queryKey: ["/api/public/event-types"],
+  });
+
+  const { data: registrations = [], isLoading: registrationsLoading } = useQuery<AssociationEventRegistration[]>({
+    queryKey: ["/api/associations", data?.association?.id, "admin", "events", showRegistrations?.id, "registrations"],
+    queryFn: async () => {
+      if (!showRegistrations || !data?.association) return [];
+      const response = await fetch(`/api/associations/${data.association.id}/admin/events/${showRegistrations.id}/registrations`);
+      if (!response.ok) throw new Error("Failed to load registrations");
+      return response.json();
+    },
+    enabled: !!showRegistrations && !!data?.association,
   });
 
   const form = useForm<EventFormData>({
@@ -474,9 +486,21 @@ export default function AssociationAdminEvents() {
                               size="sm"
                               onClick={() => openEditDialog(event)}
                               data-testid={`button-edit-${event.id}`}
+                              title="Modifier"
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
+                            {event.capacity !== null && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowRegistrations(event)}
+                                data-testid={`button-registrations-${event.id}`}
+                                title="Voir les inscriptions"
+                              >
+                                <Users className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1169,6 +1193,119 @@ export default function AssociationAdminEvents() {
                 </form>
               </Form>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog for viewing registrations */}
+        <Dialog open={!!showRegistrations} onOpenChange={(open) => !open && setShowRegistrations(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Inscriptions - {showRegistrations?.title}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {registrationsLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : registrations.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Aucune inscription pour cet evenement</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{registrations.length} inscription(s)</span>
+                  <span>
+                    Total: {registrations.reduce((sum, r) => sum + r.numberOfGuests, 0)} participant(s)
+                    {showRegistrations?.capacity !== null && showRegistrations?.capacity !== undefined && (
+                      <> / {showRegistrations?.capacity} places</>
+                    )}
+                  </span>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nom</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Telephone</TableHead>
+                      <TableHead className="text-center">Places</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {registrations.map((reg) => (
+                      <TableRow key={reg.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{reg.fullName}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <a 
+                            href={`mailto:${reg.email}`} 
+                            className="flex items-center gap-2 text-primary hover:underline"
+                          >
+                            <Mail className="h-4 w-4" />
+                            {reg.email}
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          {reg.phone ? (
+                            <a 
+                              href={`tel:${reg.phone}`} 
+                              className="flex items-center gap-2 text-primary hover:underline"
+                            >
+                              <Phone className="h-4 w-4" />
+                              {reg.phone}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 bg-secondary rounded text-sm font-medium">
+                            {reg.numberOfGuests}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {new Date(reg.createdAt).toLocaleDateString("fr-FR", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {registrations.some(r => r.comment) && (
+                  <div className="mt-4 space-y-2">
+                    <h4 className="font-medium text-sm">Commentaires:</h4>
+                    {registrations.filter(r => r.comment).map((reg) => (
+                      <div key={reg.id} className="p-3 bg-muted rounded-md">
+                        <p className="text-sm font-medium">{reg.fullName}</p>
+                        <p className="text-sm text-muted-foreground">{reg.comment}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowRegistrations(null)}>
+                Fermer
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

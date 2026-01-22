@@ -6255,6 +6255,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Admin: Get tenant event registrations
+  app.get("/api/tenants/:slug/admin/events/:eventId/registrations", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      if (!auth.hasMenuAccess) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      const registrations = await storage.getTenantEventRegistrations(req.params.eventId);
+      res.json(registrations);
+    } catch (error) {
+      console.error("Get tenant event registrations error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   // Admin: Create tenant event
   app.post("/api/tenants/:slug/admin/events", async (req, res) => {
     try {
@@ -10250,6 +10276,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(event);
     } catch (error) {
       console.error("Association admin event error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Association Admin: Get event registrations
+  app.get("/api/associations/:associationId/admin/events/:eventId/registrations", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const event = await storage.getAssociationEventById(req.params.eventId);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      const registrations = await storage.getAssociationEventRegistrations(req.params.eventId);
+      res.json(registrations);
+    } catch (error) {
+      console.error("Get association event registrations error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
