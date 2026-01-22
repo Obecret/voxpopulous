@@ -20,14 +20,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Search, Plus, Eye, Calendar, MapPin, Loader2, Archive, ArchiveRestore, Ticket, Image, ExternalLink } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import type { Association, AssociationUser, AssociationEvent, GlobalAssociationDomain } from "@shared/schema";
+import type { Association, AssociationUser, AssociationEvent, GlobalAssociationDomain, GlobalEventType } from "@shared/schema";
 
 type SafeAssociationUser = Omit<AssociationUser, "passwordHash">;
 
 const eventFormSchema = z.object({
   title: z.string().min(3, "Minimum 3 caracteres"),
   description: z.string().optional(),
-  eventType: z.enum(["STANDARD", "SPECTACLE"]),
+  eventTypeId: z.string().min(1, "Type d'evenement requis"),
   isMultiDay: z.boolean().default(false),
   startDate: z.string().min(1, "Date de debut requise"),
   endDate: z.string().optional(),
@@ -35,6 +35,7 @@ const eventFormSchema = z.object({
   domainId: z.string().optional(),
   posterUrl: z.string().optional(),
   bookingUrl: z.string().optional(),
+  capacity: z.number().optional(),
 });
 
 type EventFormData = z.infer<typeof eventFormSchema>;
@@ -66,12 +67,16 @@ export default function AssociationAdminEvents() {
     queryKey: ["/api/public/association-domains"],
   });
 
+  const { data: eventTypes = [] } = useQuery<GlobalEventType[]>({
+    queryKey: ["/api/public/event-types"],
+  });
+
   const form = useForm<EventFormData>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
       title: "",
       description: "",
-      eventType: "STANDARD",
+      eventTypeId: "",
       isMultiDay: false,
       startDate: "",
       endDate: "",
@@ -79,10 +84,12 @@ export default function AssociationAdminEvents() {
       domainId: "",
       posterUrl: "",
       bookingUrl: "",
+      capacity: undefined,
     },
   });
 
-  const watchEventType = form.watch("eventType");
+  const watchEventTypeId = form.watch("eventTypeId");
+  const selectedEventType = eventTypes.find(t => t.id === watchEventTypeId);
   const watchIsMultiDay = form.watch("isMultiDay");
 
   const createMutation = useMutation({
@@ -90,7 +97,7 @@ export default function AssociationAdminEvents() {
       return apiRequest("POST", `/api/associations/${data?.association?.id}/admin/events`, {
         title: values.title,
         description: values.description || null,
-        eventType: values.eventType,
+        eventTypeId: values.eventTypeId,
         isMultiDay: values.isMultiDay,
         startDate: new Date(values.startDate).toISOString(),
         endDate: values.isMultiDay && values.endDate ? new Date(values.endDate).toISOString() : null,
@@ -98,6 +105,7 @@ export default function AssociationAdminEvents() {
         domainId: values.domainId || null,
         posterUrl: values.posterUrl || null,
         bookingUrl: values.bookingUrl || null,
+        capacity: values.capacity || null,
         status: "SCHEDULED",
       });
     },
@@ -271,11 +279,13 @@ export default function AssociationAdminEvents() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredEvents.map((event) => (
+                    {filteredEvents.map((event) => {
+                      const eventType = eventTypes.find(t => t.id === event.eventTypeId);
+                      return (
                       <TableRow key={event.id} data-testid={`row-event-${event.id}`}>
                         <TableCell className="font-medium max-w-xs truncate">
                           <div className="flex items-center gap-2">
-                            {event.eventType === "SPECTACLE" && (
+                            {eventType?.hasPoster && (
                               <Ticket className="h-4 w-4 text-primary shrink-0" />
                             )}
                             {event.title}
@@ -291,7 +301,7 @@ export default function AssociationAdminEvents() {
                           </span>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">
-                          {event.eventType === "SPECTACLE" ? "Spectacle" : "Standard"}
+                          {eventType?.name || "Standard"}
                         </TableCell>
                         <TableCell>
                           <StatusBadge type="event" status={event.status} />
@@ -323,7 +333,8 @@ export default function AssociationAdminEvents() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -354,7 +365,7 @@ export default function AssociationAdminEvents() {
 
                 <FormField
                   control={form.control}
-                  name="eventType"
+                  name="eventTypeId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Type d'evenement</FormLabel>
@@ -365,8 +376,11 @@ export default function AssociationAdminEvents() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="STANDARD">Standard</SelectItem>
-                          <SelectItem value="SPECTACLE">Spectacle</SelectItem>
+                          {eventTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -393,22 +407,24 @@ export default function AssociationAdminEvents() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="isMultiDay"
-                  render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          data-testid="switch-multi-day"
-                        />
-                      </FormControl>
-                      <FormLabel className="!mt-0">Evenement sur plusieurs jours</FormLabel>
-                    </FormItem>
-                  )}
-                />
+                {selectedEventType?.hasMultiDay && (
+                  <FormField
+                    control={form.control}
+                    name="isMultiDay"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center gap-2">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            data-testid="switch-multi-day"
+                          />
+                        </FormControl>
+                        <FormLabel className="!mt-0">Evenement sur plusieurs jours</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -416,7 +432,7 @@ export default function AssociationAdminEvents() {
                     name="startDate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{watchIsMultiDay ? "Date de debut" : "Date"}</FormLabel>
+                        <FormLabel>{selectedEventType?.hasMultiDay && watchIsMultiDay ? "Date de debut" : "Date"}</FormLabel>
                         <FormControl>
                           <Input type="datetime-local" {...field} data-testid="input-start-date" />
                         </FormControl>
@@ -425,7 +441,7 @@ export default function AssociationAdminEvents() {
                     )}
                   />
 
-                  {watchIsMultiDay && (
+                  {selectedEventType?.hasMultiDay && watchIsMultiDay && (
                     <FormField
                       control={form.control}
                       name="endDate"
@@ -483,44 +499,66 @@ export default function AssociationAdminEvents() {
                   />
                 )}
 
-                {watchEventType === "SPECTACLE" && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="posterUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>URL de l'affiche</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="https://..."
-                              {...field}
-                              data-testid="input-poster-url"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                {selectedEventType?.hasCapacity && (
+                  <FormField
+                    control={form.control}
+                    name="capacity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Capacite</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number"
+                            placeholder="Nombre de places" 
+                            value={field.value || ""}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-capacity"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
 
-                    <FormField
-                      control={form.control}
-                      name="bookingUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>URL de reservation</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="https://..."
-                              {...field}
-                              data-testid="input-booking-url"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
+                {selectedEventType?.hasPoster && (
+                  <FormField
+                    control={form.control}
+                    name="posterUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>URL de l'affiche</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="https://..."
+                            {...field}
+                            data-testid="input-poster-url"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {selectedEventType?.hasBookingUrl && (
+                  <FormField
+                    control={form.control}
+                    name="bookingUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>URL de reservation</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="https://..."
+                            {...field}
+                            data-testid="input-booking-url"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
 
                 <DialogFooter>
@@ -562,7 +600,7 @@ export default function AssociationAdminEvents() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Type:</span>
-                    <p>{selectedEvent.eventType === "SPECTACLE" ? "Spectacle" : "Standard"}</p>
+                    <p>{eventTypes.find(t => t.id === selectedEvent.eventTypeId)?.name || "Standard"}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Statut:</span>
@@ -570,38 +608,42 @@ export default function AssociationAdminEvents() {
                       <StatusBadge type="event" status={selectedEvent.status} />
                     </div>
                   </div>
+                  {selectedEvent.capacity && (
+                    <div>
+                      <span className="text-muted-foreground">Capacite:</span>
+                      <p>{selectedEvent.capacity} places</p>
+                    </div>
+                  )}
                 </div>
 
-                {selectedEvent.eventType === "SPECTACLE" && (
-                  <div className="space-y-2">
-                    {selectedEvent.posterUrl && (
-                      <div className="flex items-center gap-2">
-                        <Image className="h-4 w-4" />
-                        <a
-                          href={selectedEvent.posterUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          Voir l'affiche
-                        </a>
-                      </div>
-                    )}
-                    {selectedEvent.bookingUrl && (
-                      <div className="flex items-center gap-2">
-                        <ExternalLink className="h-4 w-4" />
-                        <a
-                          href={selectedEvent.bookingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          Lien de reservation
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div className="space-y-2">
+                  {selectedEvent.posterUrl && (
+                    <div className="flex items-center gap-2">
+                      <Image className="h-4 w-4" />
+                      <a
+                        href={selectedEvent.posterUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Voir l'affiche
+                      </a>
+                    </div>
+                  )}
+                  {selectedEvent.bookingUrl && (
+                    <div className="flex items-center gap-2">
+                      <ExternalLink className="h-4 w-4" />
+                      <a
+                        href={selectedEvent.bookingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Lien de reservation
+                      </a>
+                    </div>
+                  )}
+                </div>
 
                 <DialogFooter>
                   <Button

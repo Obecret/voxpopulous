@@ -4141,6 +4141,12 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async getTenantEventImageById(id: string): Promise<TenantEventImage | undefined> {
+    const [image] = await db.select().from(tenantEventImages)
+      .where(eq(tenantEventImages.id, id));
+    return image;
+  }
+
   async deleteTenantEventImage(id: string): Promise<boolean> {
     await db.delete(tenantEventImages)
       .where(eq(tenantEventImages.id, id));
@@ -4156,6 +4162,12 @@ export class DatabaseStorage implements IStorage {
   async createAssociationEventImage(image: InsertAssociationEventImage): Promise<AssociationEventImage> {
     const [created] = await db.insert(associationEventImages).values(image).returning();
     return created;
+  }
+
+  async getAssociationEventImageById(id: string): Promise<AssociationEventImage | undefined> {
+    const [image] = await db.select().from(associationEventImages)
+      .where(eq(associationEventImages.id, id));
+    return image;
   }
 
   async deleteAssociationEventImage(id: string): Promise<boolean> {

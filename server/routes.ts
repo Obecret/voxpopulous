@@ -6284,6 +6284,111 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Tenant Event Images routes
+  app.get("/api/tenants/:slug/admin/events/:eventId/images", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      const images = await storage.getTenantEventImages(event.id);
+      res.json(images);
+    } catch (error) {
+      console.error("Get tenant event images error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/tenants/:slug/admin/events/:eventId/images", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      if (!auth.hasMenuAccess) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      const { imageUrl, caption, sortOrder } = req.body;
+      if (!imageUrl) {
+        return res.status(400).json({ error: "URL image requise" });
+      }
+      const image = await storage.createTenantEventImage({
+        eventId: event.id,
+        imageUrl,
+        caption: caption || null,
+        sortOrder: sortOrder || 0,
+      });
+      res.status(201).json(image);
+    } catch (error) {
+      console.error("Create tenant event image error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.delete("/api/tenants/:slug/admin/events/:eventId/images/:imageId", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      if (!auth.hasMenuAccess) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      const image = await storage.getTenantEventImageById(req.params.imageId);
+      if (!image || image.eventId !== event.id) {
+        return res.status(404).json({ error: "Image not found" });
+      }
+      await storage.deleteTenantEventImage(req.params.imageId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete tenant event image error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Public tenant event images route
+  app.get("/api/public/tenants/:slug/events/:eventId/images", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      const images = await storage.getTenantEventImages(event.id);
+      res.json(images);
+    } catch (error) {
+      console.error("Get public tenant event images error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   app.get("/api/stripe/publishable-key", async (_req, res) => {
     try {
       const publishableKey = await getStripePublishableKey();
@@ -10117,6 +10222,95 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(updated);
     } catch (error) {
       console.error("Association event archive error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Association Event Images routes
+  app.get("/api/associations/:associationId/admin/events/:eventId/images", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const event = await storage.getAssociationEventById(req.params.eventId);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      const images = await storage.getAssociationEventImages(event.id);
+      res.json(images);
+    } catch (error) {
+      console.error("Get association event images error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/associations/:associationId/admin/events/:eventId/images", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const event = await storage.getAssociationEventById(req.params.eventId);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      const { imageUrl, caption, sortOrder } = req.body;
+      if (!imageUrl) {
+        return res.status(400).json({ error: "URL image requise" });
+      }
+      const image = await storage.createAssociationEventImage({
+        eventId: event.id,
+        imageUrl,
+        caption: caption || null,
+        sortOrder: sortOrder || 0,
+      });
+      res.status(201).json(image);
+    } catch (error) {
+      console.error("Create association event image error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.delete("/api/associations/:associationId/admin/events/:eventId/images/:imageId", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const event = await storage.getAssociationEventById(req.params.eventId);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      const image = await storage.getAssociationEventImageById(req.params.imageId);
+      if (!image || image.eventId !== event.id) {
+        return res.status(404).json({ error: "Image non trouvee" });
+      }
+      await storage.deleteAssociationEventImage(req.params.imageId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete association event image error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Public association event images route
+  app.get("/api/public/associations/:associationId/events/:eventId/images", async (req, res) => {
+    try {
+      const event = await storage.getAssociationEventById(req.params.eventId);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      const images = await storage.getAssociationEventImages(event.id);
+      res.json(images);
+    } catch (error) {
+      console.error("Get public association event images error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
