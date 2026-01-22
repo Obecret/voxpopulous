@@ -67,6 +67,11 @@ import {
   type BureauMemberFunction, type InsertBureauMemberFunction,
   type GlobalMunicipalityDomain, type InsertGlobalMunicipalityDomain,
   type GlobalAssociationDomain, type InsertGlobalAssociationDomain,
+  type GlobalEventType, type InsertGlobalEventType,
+  type TenantEventImage, type InsertTenantEventImage,
+  type AssociationEventImage, type InsertAssociationEventImage,
+  type TenantEventRegistration, type InsertTenantEventRegistration,
+  type TenantEventIdea, type InsertTenantEventIdea,
   type ChatThread, type InsertChatThread,
   type ChatMessage, type InsertChatMessage,
   type ActivityLog, type InsertActivityLog,
@@ -83,10 +88,11 @@ import {
   auditLogs,
   documentNumberFormats, serviceCodes, tenantServiceCodes, tenantDocumentNumberingConfig,
   legalEntitySettings, eluFunctions, bureauMemberFunctions,
-  globalMunicipalityDomains, globalAssociationDomains,
+  globalMunicipalityDomains, globalAssociationDomains, globalEventTypes,
   chatThreads, chatMessages,
   activityLogs, blockedDevices,
-  tenantEvents, associationEvents
+  tenantEvents, associationEvents,
+  tenantEventImages, associationEventImages, tenantEventRegistrations, tenantEventIdeas
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, gte, count } from "drizzle-orm";
@@ -4073,6 +4079,130 @@ export class DatabaseStorage implements IStorage {
   async deleteGlobalAssociationDomain(id: string): Promise<boolean> {
     await db.delete(globalAssociationDomains)
       .where(eq(globalAssociationDomains.id, id));
+    return true;
+  }
+
+  // =====================================================
+  // GLOBAL EVENT TYPES
+  // =====================================================
+  async getActiveGlobalEventTypes(): Promise<GlobalEventType[]> {
+    return db.select().from(globalEventTypes)
+      .where(eq(globalEventTypes.isActive, true))
+      .orderBy(asc(globalEventTypes.displayOrder));
+  }
+
+  async getAllGlobalEventTypes(): Promise<GlobalEventType[]> {
+    return db.select().from(globalEventTypes)
+      .orderBy(asc(globalEventTypes.displayOrder));
+  }
+
+  async getGlobalEventTypeById(id: string): Promise<GlobalEventType | undefined> {
+    const [eventType] = await db.select().from(globalEventTypes)
+      .where(eq(globalEventTypes.id, id));
+    return eventType || undefined;
+  }
+
+  async getGlobalEventTypeByCode(code: string): Promise<GlobalEventType | undefined> {
+    const [eventType] = await db.select().from(globalEventTypes)
+      .where(eq(globalEventTypes.code, code));
+    return eventType || undefined;
+  }
+
+  async createGlobalEventType(eventType: InsertGlobalEventType): Promise<GlobalEventType> {
+    const [created] = await db.insert(globalEventTypes).values(eventType).returning();
+    return created;
+  }
+
+  async updateGlobalEventType(id: string, data: Partial<InsertGlobalEventType>): Promise<GlobalEventType | undefined> {
+    const [updated] = await db.update(globalEventTypes)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(globalEventTypes.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteGlobalEventType(id: string): Promise<boolean> {
+    await db.delete(globalEventTypes)
+      .where(eq(globalEventTypes.id, id));
+    return true;
+  }
+
+  // =====================================================
+  // EVENT IMAGES
+  // =====================================================
+  async getTenantEventImages(eventId: string): Promise<TenantEventImage[]> {
+    return db.select().from(tenantEventImages)
+      .where(eq(tenantEventImages.eventId, eventId))
+      .orderBy(asc(tenantEventImages.sortOrder));
+  }
+
+  async createTenantEventImage(image: InsertTenantEventImage): Promise<TenantEventImage> {
+    const [created] = await db.insert(tenantEventImages).values(image).returning();
+    return created;
+  }
+
+  async deleteTenantEventImage(id: string): Promise<boolean> {
+    await db.delete(tenantEventImages)
+      .where(eq(tenantEventImages.id, id));
+    return true;
+  }
+
+  async getAssociationEventImages(eventId: string): Promise<AssociationEventImage[]> {
+    return db.select().from(associationEventImages)
+      .where(eq(associationEventImages.eventId, eventId))
+      .orderBy(asc(associationEventImages.sortOrder));
+  }
+
+  async createAssociationEventImage(image: InsertAssociationEventImage): Promise<AssociationEventImage> {
+    const [created] = await db.insert(associationEventImages).values(image).returning();
+    return created;
+  }
+
+  async deleteAssociationEventImage(id: string): Promise<boolean> {
+    await db.delete(associationEventImages)
+      .where(eq(associationEventImages.id, id));
+    return true;
+  }
+
+  // =====================================================
+  // EVENT REGISTRATIONS
+  // =====================================================
+  async getTenantEventRegistrations(eventId: string): Promise<TenantEventRegistration[]> {
+    return db.select().from(tenantEventRegistrations)
+      .where(eq(tenantEventRegistrations.eventId, eventId))
+      .orderBy(desc(tenantEventRegistrations.createdAt));
+  }
+
+  async createTenantEventRegistration(registration: InsertTenantEventRegistration): Promise<TenantEventRegistration> {
+    const [created] = await db.insert(tenantEventRegistrations).values(registration).returning();
+    return created;
+  }
+
+  async deleteTenantEventRegistration(id: string): Promise<boolean> {
+    await db.delete(tenantEventRegistrations)
+      .where(eq(tenantEventRegistrations.id, id));
+    return true;
+  }
+
+  // =====================================================
+  // EVENT IDEAS LINKING
+  // =====================================================
+  async getTenantEventIdeas(eventId: string): Promise<TenantEventIdea[]> {
+    return db.select().from(tenantEventIdeas)
+      .where(eq(tenantEventIdeas.eventId, eventId));
+  }
+
+  async createTenantEventIdea(link: InsertTenantEventIdea): Promise<TenantEventIdea> {
+    const [created] = await db.insert(tenantEventIdeas).values(link).returning();
+    return created;
+  }
+
+  async deleteTenantEventIdea(eventId: string, ideaId: string): Promise<boolean> {
+    await db.delete(tenantEventIdeas)
+      .where(and(
+        eq(tenantEventIdeas.eventId, eventId),
+        eq(tenantEventIdeas.ideaId, ideaId)
+      ));
     return true;
   }
 

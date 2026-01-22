@@ -1118,6 +1118,74 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ==========================================
+  // GLOBAL EVENT TYPES MANAGEMENT
+  // ==========================================
+  app.get("/api/superadmin/settings/event-types", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const eventTypes = await storage.getAllGlobalEventTypes();
+      res.json(eventTypes);
+    } catch (error) {
+      console.error("Get event types error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.post("/api/superadmin/settings/event-types", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const { name, code, description, icon, color, hasCapacity, hasMultiDay, hasPoster, hasBookingUrl, hasIdeaLinking, hasMultipleImages, displayOrder, isActive } = req.body;
+      if (!name || !code) {
+        return res.status(400).json({ error: "Nom et code requis" });
+      }
+      const eventType = await storage.createGlobalEventType({ 
+        name, code, description, icon, color, 
+        hasCapacity, hasMultiDay, hasPoster, hasBookingUrl, hasIdeaLinking, hasMultipleImages, 
+        displayOrder, isActive 
+      });
+      res.json(eventType);
+    } catch (error) {
+      console.error("Create event type error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.put("/api/superadmin/settings/event-types/:id", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      const { name, code, description, icon, color, hasCapacity, hasMultiDay, hasPoster, hasBookingUrl, hasIdeaLinking, hasMultipleImages, displayOrder, isActive } = req.body;
+      const eventType = await storage.updateGlobalEventType(req.params.id, { 
+        name, code, description, icon, color, 
+        hasCapacity, hasMultiDay, hasPoster, hasBookingUrl, hasIdeaLinking, hasMultipleImages, 
+        displayOrder, isActive 
+      });
+      res.json(eventType);
+    } catch (error) {
+      console.error("Update event type error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.delete("/api/superadmin/settings/event-types/:id", async (req, res) => {
+    if (!req.session.superadminId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    try {
+      await storage.deleteGlobalEventType(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete event type error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   // Public endpoints for global domains (for tenant admin pages)
   app.get("/api/public/municipality-domains", async (req, res) => {
     try {
@@ -1135,6 +1203,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(domains);
     } catch (error) {
       console.error("Get public association domains error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  app.get("/api/public/event-types", async (req, res) => {
+    try {
+      const eventTypes = await storage.getActiveGlobalEventTypes();
+      res.json(eventTypes);
+    } catch (error) {
+      console.error("Get public event types error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
