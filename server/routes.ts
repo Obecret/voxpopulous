@@ -15,6 +15,8 @@ import {
   insertIncidentSchema,
   insertMeetingSchema,
   insertMeetingRegistrationSchema,
+  insertTenantEventSchema,
+  insertAssociationEventSchema,
   insertLeadSchema,
   superadminLoginSchema,
   insertSubscriptionPlanSchema,
@@ -6042,6 +6044,168 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(updated);
   });
 
+  // ===== TENANT EVENTS =====
+  
+  // Public: Get tenant events
+  app.get("/api/tenants/:slug/events", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const events = await storage.getTenantEvents(tenant.id);
+      res.json(events);
+    } catch (error) {
+      console.error("Get tenant events error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Public: Get single tenant event
+  app.get("/api/tenants/:slug/events/:eventId", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Get tenant event error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Admin: Get tenant events (includes archived)
+  app.get("/api/tenants/:slug/admin/events", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      if (!auth.hasMenuAccess) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const includeArchived = req.query.includeArchived === "true";
+      const events = await storage.getTenantEvents(tenant.id, includeArchived);
+      res.json(events);
+    } catch (error) {
+      console.error("Get admin tenant events error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Admin: Get single tenant event
+  app.get("/api/tenants/:slug/admin/events/:eventId", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      if (!auth.hasMenuAccess) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Get admin tenant event error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Admin: Create tenant event
+  app.post("/api/tenants/:slug/admin/events", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      if (!auth.hasMenuAccess) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const data = insertTenantEventSchema.parse(req.body);
+      const event = await storage.createTenantEvent({
+        ...data,
+        tenantId: tenant.id,
+      });
+      res.json(event);
+    } catch (error: any) {
+      console.error("Create tenant event error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Admin: Update tenant event
+  app.put("/api/tenants/:slug/admin/events/:eventId", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      if (!auth.hasMenuAccess) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      const updated = await storage.updateTenantEvent(event.id, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Update tenant event error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Admin: Archive/unarchive tenant event
+  app.post("/api/tenants/:slug/admin/events/:eventId/archive", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      if (!auth.hasMenuAccess) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      const isArchived = req.body.isArchived !== undefined ? req.body.isArchived : true;
+      const updated = await storage.setTenantEventArchived(event.id, isArchived);
+      res.json(updated);
+    } catch (error) {
+      console.error("Archive tenant event error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   app.get("/api/stripe/publishable-key", async (_req, res) => {
     try {
       const publishableKey = await getStripePublishableKey();
@@ -9736,6 +9900,145 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(registration);
     } catch (error) {
       console.error("Association meeting registration error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // ==========================================
+  // ASSOCIATION EVENTS ROUTES
+  // ==========================================
+
+  // Association Public: Get events
+  app.get("/api/associations/:associationId/events", async (req, res) => {
+    try {
+      const association = await storage.getAssociationById(req.params.associationId);
+      if (!association || !association.isActive) {
+        return res.status(404).json({ error: "Association non trouvee" });
+      }
+      const events = await storage.getAssociationEvents(req.params.associationId);
+      res.json(events);
+    } catch (error) {
+      console.error("Association public events error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Association Public: Get single event
+  app.get("/api/associations/:associationId/events/:id", async (req, res) => {
+    try {
+      const association = await storage.getAssociationById(req.params.associationId);
+      if (!association || !association.isActive) {
+        return res.status(404).json({ error: "Association non trouvee" });
+      }
+      const event = await storage.getAssociationEventById(req.params.id);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Association public event detail error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Association Admin: Get events
+  app.get("/api/associations/:associationId/admin/events", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const includeArchived = req.query.includeArchived === "true";
+      const events = await storage.getAssociationEvents(req.params.associationId, includeArchived);
+      res.json(events);
+    } catch (error) {
+      console.error("Association admin events error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Association Admin: Get single event
+  app.get("/api/associations/:associationId/admin/events/:id", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const event = await storage.getAssociationEventById(req.params.id);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      res.json(event);
+    } catch (error) {
+      console.error("Association admin event error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Association Admin: Create event
+  app.post("/api/associations/:associationId/admin/events", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const data = insertAssociationEventSchema.parse(req.body);
+      const event = await storage.createAssociationEvent({
+        ...data,
+        associationId: req.params.associationId,
+      });
+      res.json(event);
+    } catch (error: any) {
+      console.error("Association event creation error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Association Admin: Update event
+  app.put("/api/associations/:associationId/admin/events/:id", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const event = await storage.getAssociationEventById(req.params.id);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      const updated = await storage.updateAssociationEvent(event.id, req.body);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Association event update error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Association Admin: Archive/unarchive event
+  app.post("/api/associations/:associationId/admin/events/:id/archive", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const event = await storage.getAssociationEventById(req.params.id);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      const isArchived = req.body.isArchived !== undefined ? req.body.isArchived : true;
+      const updated = await storage.setAssociationEventArchived(event.id, isArchived);
+      res.json(updated);
+    } catch (error) {
+      console.error("Association event archive error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });

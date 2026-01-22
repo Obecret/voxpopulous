@@ -34,6 +34,8 @@ import {
   type ElectedOfficial, type InsertElectedOfficial,
   type TenantPhoto, type InsertTenantPhoto,
   type AssociationPhoto, type InsertAssociationPhoto,
+  type TenantEvent, type InsertTenantEvent,
+  type AssociationEvent, type InsertAssociationEvent,
   type Product, type InsertProduct,
   type Quote, type InsertQuote,
   type QuoteLineItem, type InsertQuoteLineItem,
@@ -83,7 +85,8 @@ import {
   legalEntitySettings, eluFunctions, bureauMemberFunctions,
   globalMunicipalityDomains, globalAssociationDomains,
   chatThreads, chatMessages,
-  activityLogs, blockedDevices
+  activityLogs, blockedDevices,
+  tenantEvents, associationEvents
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, gte, count } from "drizzle-orm";
@@ -132,6 +135,18 @@ export interface IStorage {
   
   getMeetingRegistrations(meetingId: string): Promise<MeetingRegistration[]>;
   createMeetingRegistration(reg: InsertMeetingRegistration & { meetingId: string }): Promise<MeetingRegistration>;
+  
+  getTenantEvents(tenantId: string, includeArchived?: boolean): Promise<TenantEvent[]>;
+  getTenantEventById(id: string): Promise<TenantEvent | undefined>;
+  createTenantEvent(event: InsertTenantEvent & { tenantId: string }): Promise<TenantEvent>;
+  updateTenantEvent(id: string, event: Partial<InsertTenantEvent>): Promise<TenantEvent | undefined>;
+  setTenantEventArchived(id: string, isArchived: boolean): Promise<TenantEvent | undefined>;
+  
+  getAssociationEvents(associationId: string, includeArchived?: boolean): Promise<AssociationEvent[]>;
+  getAssociationEventById(id: string): Promise<AssociationEvent | undefined>;
+  createAssociationEvent(event: InsertAssociationEvent & { associationId: string }): Promise<AssociationEvent>;
+  updateAssociationEvent(id: string, event: Partial<InsertAssociationEvent>): Promise<AssociationEvent | undefined>;
+  setAssociationEventArchived(id: string, isArchived: boolean): Promise<AssociationEvent | undefined>;
   
   getStats(tenantId: string): Promise<{
     ideas: { total: number; new: number };
@@ -596,6 +611,84 @@ export class DatabaseStorage implements IStorage {
   async createMeetingRegistration(reg: InsertMeetingRegistration & { meetingId: string }): Promise<MeetingRegistration> {
     const [newReg] = await db.insert(meetingRegistrations).values(reg).returning();
     return newReg;
+  }
+
+  async getTenantEvents(tenantId: string, includeArchived: boolean = false): Promise<TenantEvent[]> {
+    const conditions = [eq(tenantEvents.tenantId, tenantId)];
+    if (!includeArchived) {
+      conditions.push(eq(tenantEvents.isArchived, false));
+    }
+    return db.select().from(tenantEvents)
+      .where(and(...conditions))
+      .orderBy(asc(tenantEvents.startDate));
+  }
+
+  async getTenantEventById(id: string): Promise<TenantEvent | undefined> {
+    const [event] = await db.select().from(tenantEvents).where(eq(tenantEvents.id, id));
+    return event || undefined;
+  }
+
+  async createTenantEvent(event: InsertTenantEvent & { tenantId: string }): Promise<TenantEvent> {
+    const [newEvent] = await db.insert(tenantEvents).values({
+      ...event,
+      status: event.status || "SCHEDULED",
+    }).returning();
+    return newEvent;
+  }
+
+  async updateTenantEvent(id: string, event: Partial<InsertTenantEvent>): Promise<TenantEvent | undefined> {
+    const [updated] = await db.update(tenantEvents)
+      .set({ ...event, updatedAt: new Date() })
+      .where(eq(tenantEvents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async setTenantEventArchived(id: string, isArchived: boolean): Promise<TenantEvent | undefined> {
+    const [updated] = await db.update(tenantEvents)
+      .set({ isArchived, updatedAt: new Date() })
+      .where(eq(tenantEvents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getAssociationEvents(associationId: string, includeArchived: boolean = false): Promise<AssociationEvent[]> {
+    const conditions = [eq(associationEvents.associationId, associationId)];
+    if (!includeArchived) {
+      conditions.push(eq(associationEvents.isArchived, false));
+    }
+    return db.select().from(associationEvents)
+      .where(and(...conditions))
+      .orderBy(asc(associationEvents.startDate));
+  }
+
+  async getAssociationEventById(id: string): Promise<AssociationEvent | undefined> {
+    const [event] = await db.select().from(associationEvents).where(eq(associationEvents.id, id));
+    return event || undefined;
+  }
+
+  async createAssociationEvent(event: InsertAssociationEvent & { associationId: string }): Promise<AssociationEvent> {
+    const [newEvent] = await db.insert(associationEvents).values({
+      ...event,
+      status: event.status || "SCHEDULED",
+    }).returning();
+    return newEvent;
+  }
+
+  async updateAssociationEvent(id: string, event: Partial<InsertAssociationEvent>): Promise<AssociationEvent | undefined> {
+    const [updated] = await db.update(associationEvents)
+      .set({ ...event, updatedAt: new Date() })
+      .where(eq(associationEvents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async setAssociationEventArchived(id: string, isArchived: boolean): Promise<AssociationEvent | undefined> {
+    const [updated] = await db.update(associationEvents)
+      .set({ isArchived, updatedAt: new Date() })
+      .where(eq(associationEvents.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async getStats(tenantId: string): Promise<{
