@@ -60,6 +60,7 @@ import AdminDashboard from "@/pages/tenant/admin/dashboard";
 import AdminIdeas from "@/pages/tenant/admin/ideas";
 import AdminIncidents from "@/pages/tenant/admin/incidents";
 import AdminMeetings from "@/pages/tenant/admin/meetings";
+import AdminEvents from "@/pages/tenant/admin/events";
 import AdminBilling from "@/pages/tenant/admin/billing";
 import AdminAssociations from "@/pages/tenant/admin/associations";
 import AdminCommunes from "@/pages/tenant/admin/communes";
@@ -80,6 +81,7 @@ import AssociationDashboard from "@/pages/association/dashboard";
 import AssociationAdminIdeas from "@/pages/association/admin/ideas";
 import AssociationAdminIncidents from "@/pages/association/admin/incidents";
 import AssociationAdminMeetings from "@/pages/association/admin/meetings";
+import AssociationAdminEvents from "@/pages/association/admin/events";
 import AssociationAdminBilling from "@/pages/association/admin/billing";
 import AssociationAdminBureau from "@/pages/association/admin/bureau";
 import AssociationAdminPhotos from "@/pages/association/admin/photos";
@@ -176,6 +178,7 @@ function Router() {
       <Route path="/structures/:slug/admin/ideas" component={AdminIdeas} />
       <Route path="/structures/:slug/admin/incidents" component={AdminIncidents} />
       <Route path="/structures/:slug/admin/meetings" component={AdminMeetings} />
+      <Route path="/structures/:slug/admin/events" component={AdminEvents} />
       <Route path="/structures/:slug/admin/billing" component={AdminBilling} />
       <Route path="/structures/:slug/admin/associations" component={AdminAssociations} />
       <Route path="/structures/:slug/admin/communes" component={AdminCommunes} />
@@ -200,6 +203,7 @@ function Router() {
       <Route path="/structures/:slug/:assocSlug/admin/ideas" component={AssociationAdminIdeas} />
       <Route path="/structures/:slug/:assocSlug/admin/incidents" component={AssociationAdminIncidents} />
       <Route path="/structures/:slug/:assocSlug/admin/meetings" component={AssociationAdminMeetings} />
+      <Route path="/structures/:slug/:assocSlug/admin/events" component={AssociationAdminEvents} />
       <Route path="/structures/:slug/:assocSlug/admin/bureau" component={AssociationAdminBureau} />
       <Route path="/structures/:slug/:assocSlug/admin/domains" component={AssociationAdminDomains} />
       <Route path="/structures/:slug/:assocSlug/admin/photos" component={AssociationAdminPhotos} />

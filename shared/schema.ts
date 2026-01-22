@@ -1970,6 +1970,11 @@ export const STATUS_LABELS = {
     SCHEDULED: "Planifiee",
     COMPLETED: "Terminee",
     CANCELLED: "Annulee"
+  },
+  event: {
+    SCHEDULED: "Planifie",
+    COMPLETED: "Termine",
+    CANCELLED: "Annule"
   }
 };
 

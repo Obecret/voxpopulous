@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { STATUS_LABELS } from "@shared/schema";
 
-type StatusType = "idea" | "incident" | "meeting";
+type StatusType = "idea" | "incident" | "meeting" | "event";
 
 interface StatusBadgeProps {
   type: StatusType;
