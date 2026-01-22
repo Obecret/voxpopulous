@@ -10512,6 +10512,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Association Admin: Get photo upload URL
+  app.post("/api/associations/:associationId/admin/photos/upload-url", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Association photo upload URL error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   // Association Admin: Create photo
   app.post("/api/associations/:associationId/admin/photos", async (req, res) => {
     if (!req.session.associationUserId || !req.session.associationId) {
@@ -10749,6 +10766,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.json(photos);
     } catch (error) {
       console.error("Tenant photos list error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Tenant Admin: Get photo upload URL
+  app.post("/api/tenants/:slug/admin/photos/upload-url", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Non authentifie" });
+      }
+
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Tenant photo upload URL error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
