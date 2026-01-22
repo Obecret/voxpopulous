@@ -17,6 +17,8 @@ import {
   insertMeetingRegistrationSchema,
   insertTenantEventSchema,
   insertAssociationEventSchema,
+  insertTenantEventRegistrationSchema,
+  insertAssociationEventRegistrationSchema,
   insertLeadSchema,
   superadminLoginSchema,
   insertSubscriptionPlanSchema,
@@ -6132,7 +6134,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ error: "Tenant not found" });
       }
       const events = await storage.getTenantEvents(tenant.id);
-      res.json(events);
+      // Add registration counts to events
+      const eventsWithCounts = await Promise.all(
+        events.map(async (event) => {
+          const totalRegistrations = await storage.getTenantEventRegistrationsCount(event.id);
+          return { ...event, totalRegistrations };
+        })
+      );
+      res.json(eventsWithCounts);
     } catch (error) {
       console.error("Get tenant events error:", error);
       res.status(500).json({ error: "Erreur serveur" });
@@ -6150,9 +6159,50 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!event || event.tenantId !== tenant.id) {
         return res.status(404).json({ error: "Event not found" });
       }
-      res.json(event);
+      // Get total registrations count
+      const totalRegistrations = await storage.getTenantEventRegistrationsCount(req.params.eventId);
+      res.json({ ...event, totalRegistrations });
     } catch (error) {
       console.error("Get tenant event error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Public: Register for tenant event
+  app.post("/api/tenants/:slug/events/:eventId/register", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      if (event.isArchived || new Date(event.startDate) < new Date()) {
+        return res.status(400).json({ error: "L'evenement est termine" });
+      }
+      if (event.capacity === null) {
+        return res.status(400).json({ error: "Les inscriptions ne sont pas ouvertes pour cet evenement" });
+      }
+      // Validate request body with Zod
+      const validationResult = insertTenantEventRegistrationSchema.safeParse({
+        ...req.body,
+        eventId: req.params.eventId,
+      });
+      if (!validationResult.success) {
+        return res.status(400).json({ error: "Donnees invalides", details: validationResult.error.format() });
+      }
+      const data = validationResult.data;
+      // Check if there's enough capacity
+      const currentRegistrations = await storage.getTenantEventRegistrationsCount(req.params.eventId);
+      if (currentRegistrations + data.numberOfGuests > event.capacity) {
+        return res.status(400).json({ error: "Il n'y a pas assez de places disponibles" });
+      }
+      const registration = await storage.createTenantEventRegistration(data);
+      res.json(registration);
+    } catch (error) {
+      console.error("Register for tenant event error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });
@@ -10328,7 +10378,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/public/associations/:associationId/events", async (req, res) => {
     try {
       const events = await storage.getAssociationEvents(req.params.associationId, false);
-      res.json(events);
+      // Add registration counts to events
+      const eventsWithCounts = await Promise.all(
+        events.map(async (event) => {
+          const totalRegistrations = await storage.getAssociationEventRegistrationsCount(event.id);
+          return { ...event, totalRegistrations };
+        })
+      );
+      res.json(eventsWithCounts);
     } catch (error) {
       console.error("Get public association events error:", error);
       res.status(500).json({ error: "Erreur serveur" });
@@ -10342,9 +10399,46 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!event || event.associationId !== req.params.associationId) {
         return res.status(404).json({ error: "Evenement non trouve" });
       }
-      res.json(event);
+      // Get total registrations count
+      const totalRegistrations = await storage.getAssociationEventRegistrationsCount(req.params.eventId);
+      res.json({ ...event, totalRegistrations });
     } catch (error) {
       console.error("Get public association event error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Public: Register for association event
+  app.post("/api/public/associations/:associationId/events/:eventId/register", async (req, res) => {
+    try {
+      const event = await storage.getAssociationEventById(req.params.eventId);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      if (event.isArchived || new Date(event.startDate) < new Date()) {
+        return res.status(400).json({ error: "L'evenement est termine" });
+      }
+      if (event.capacity === null) {
+        return res.status(400).json({ error: "Les inscriptions ne sont pas ouvertes pour cet evenement" });
+      }
+      // Validate request body with Zod
+      const validationResult = insertAssociationEventRegistrationSchema.safeParse({
+        ...req.body,
+        eventId: req.params.eventId,
+      });
+      if (!validationResult.success) {
+        return res.status(400).json({ error: "Donnees invalides", details: validationResult.error.format() });
+      }
+      const data = validationResult.data;
+      // Check if there's enough capacity
+      const currentRegistrations = await storage.getAssociationEventRegistrationsCount(req.params.eventId);
+      if (currentRegistrations + data.numberOfGuests > event.capacity) {
+        return res.status(400).json({ error: "Il n'y a pas assez de places disponibles" });
+      }
+      const registration = await storage.createAssociationEventRegistration(data);
+      res.json(registration);
+    } catch (error) {
+      console.error("Register for association event error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });

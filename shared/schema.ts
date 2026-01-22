@@ -298,6 +298,8 @@ export const tenantEventRegistrations = pgTable("tenant_event_registrations", {
   eventId: varchar("event_id", { length: 36 }).notNull().references(() => tenantEvents.id, { onDelete: "cascade" }),
   fullName: text("full_name").notNull(),
   email: text("email").notNull(),
+  phone: text("phone"),
+  numberOfGuests: integer("number_of_guests").notNull().default(1),
   comment: text("comment"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -339,6 +341,18 @@ export const associationEventImages = pgTable("association_event_images", {
   imageObjectPath: text("image_object_path"),
   caption: text("caption"),
   sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Event registrations for associations
+export const associationEventRegistrations = pgTable("association_event_registrations", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id", { length: 36 }).notNull().references(() => associationEvents.id, { onDelete: "cascade" }),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  numberOfGuests: integer("number_of_guests").notNull().default(1),
+  comment: text("comment"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -1420,6 +1434,13 @@ export const insertTenantEventRegistrationSchema = createInsertSchema(tenantEven
 });
 export type TenantEventRegistration = typeof tenantEventRegistrations.$inferSelect;
 export type InsertTenantEventRegistration = z.infer<typeof insertTenantEventRegistrationSchema>;
+
+export const insertAssociationEventRegistrationSchema = createInsertSchema(associationEventRegistrations).omit({
+  id: true,
+  createdAt: true,
+});
+export type AssociationEventRegistration = typeof associationEventRegistrations.$inferSelect;
+export type InsertAssociationEventRegistration = z.infer<typeof insertAssociationEventRegistrationSchema>;
 
 export const insertTenantEventIdeaSchema = createInsertSchema(tenantEventIdeas).omit({
   id: true,

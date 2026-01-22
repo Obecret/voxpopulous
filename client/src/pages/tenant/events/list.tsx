@@ -1,6 +1,25 @@
 import { useParams, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { TenantLayout } from "@/components/layout/tenant-layout";
+
+// Helper to normalize GCS URLs to local /objects/ paths
+function normalizeImageUrl(url: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith('/objects/')) return url;
+  if (url.startsWith('https://storage.googleapis.com/')) {
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      const uploadsIndex = pathParts.findIndex(p => p === 'uploads');
+      if (uploadsIndex >= 0) {
+        return `/objects/${pathParts.slice(uploadsIndex).join('/')}`;
+      }
+    } catch {
+      // fallback to original
+    }
+  }
+  return url;
+}
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -76,9 +95,9 @@ export default function EventsList() {
           <div className="flex flex-col lg:flex-row lg:items-start gap-4">
             <div className="flex items-start gap-3 shrink-0">
               {event.posterUrl && (
-                <a href={event.posterUrl} target="_blank" rel="noopener noreferrer" className="block shrink-0">
+                <a href={normalizeImageUrl(event.posterUrl) || undefined} target="_blank" rel="noopener noreferrer" className="block shrink-0">
                   <img 
-                    src={event.posterUrl} 
+                    src={normalizeImageUrl(event.posterUrl) || undefined} 
                     alt={`Affiche ${event.title}`}
                     className="w-12 h-16 object-cover rounded-md shadow-sm hover:shadow-md transition-shadow"
                     data-testid={`img-poster-${event.id}`}

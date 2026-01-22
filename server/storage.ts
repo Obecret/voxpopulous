@@ -92,7 +92,8 @@ import {
   chatThreads, chatMessages,
   activityLogs, blockedDevices,
   tenantEvents, associationEvents,
-  tenantEventImages, associationEventImages, tenantEventRegistrations, tenantEventIdeas
+  tenantEventImages, associationEventImages, tenantEventRegistrations, associationEventRegistrations, tenantEventIdeas,
+  InsertAssociationEventRegistration, AssociationEventRegistration
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc, asc, gte, count } from "drizzle-orm";
@@ -4185,6 +4186,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(tenantEventRegistrations.createdAt));
   }
 
+  async getTenantEventRegistrationsCount(eventId: string): Promise<number> {
+    const result = await db.select({ total: sql<number>`COALESCE(SUM(${tenantEventRegistrations.numberOfGuests}), 0)` })
+      .from(tenantEventRegistrations)
+      .where(eq(tenantEventRegistrations.eventId, eventId));
+    return Number(result[0]?.total || 0);
+  }
+
   async createTenantEventRegistration(registration: InsertTenantEventRegistration): Promise<TenantEventRegistration> {
     const [created] = await db.insert(tenantEventRegistrations).values(registration).returning();
     return created;
@@ -4193,6 +4201,33 @@ export class DatabaseStorage implements IStorage {
   async deleteTenantEventRegistration(id: string): Promise<boolean> {
     await db.delete(tenantEventRegistrations)
       .where(eq(tenantEventRegistrations.id, id));
+    return true;
+  }
+
+  // =====================================================
+  // ASSOCIATION EVENT REGISTRATIONS
+  // =====================================================
+  async getAssociationEventRegistrations(eventId: string): Promise<AssociationEventRegistration[]> {
+    return db.select().from(associationEventRegistrations)
+      .where(eq(associationEventRegistrations.eventId, eventId))
+      .orderBy(desc(associationEventRegistrations.createdAt));
+  }
+
+  async getAssociationEventRegistrationsCount(eventId: string): Promise<number> {
+    const result = await db.select({ total: sql<number>`COALESCE(SUM(${associationEventRegistrations.numberOfGuests}), 0)` })
+      .from(associationEventRegistrations)
+      .where(eq(associationEventRegistrations.eventId, eventId));
+    return Number(result[0]?.total || 0);
+  }
+
+  async createAssociationEventRegistration(registration: InsertAssociationEventRegistration): Promise<AssociationEventRegistration> {
+    const [created] = await db.insert(associationEventRegistrations).values(registration).returning();
+    return created;
+  }
+
+  async deleteAssociationEventRegistration(id: string): Promise<boolean> {
+    await db.delete(associationEventRegistrations)
+      .where(eq(associationEventRegistrations.id, id));
     return true;
   }
 
