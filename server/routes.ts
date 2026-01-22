@@ -6134,14 +6134,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(404).json({ error: "Tenant not found" });
       }
       const events = await storage.getTenantEvents(tenant.id);
-      // Add registration counts to events
-      const eventsWithCounts = await Promise.all(
+      // Add registration counts and first image to events
+      const eventsWithData = await Promise.all(
         events.map(async (event) => {
           const totalRegistrations = await storage.getTenantEventRegistrationsCount(event.id);
-          return { ...event, totalRegistrations };
+          // If no posterUrl, get first image from gallery
+          let posterUrl = event.posterUrl;
+          if (!posterUrl) {
+            const images = await storage.getTenantEventImages(event.id);
+            if (images.length > 0) {
+              posterUrl = images[0].imageUrl;
+            }
+          }
+          return { ...event, posterUrl, totalRegistrations };
         })
       );
-      res.json(eventsWithCounts);
+      res.json(eventsWithData);
     } catch (error) {
       console.error("Get tenant events error:", error);
       res.status(500).json({ error: "Erreur serveur" });
@@ -6161,7 +6169,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       // Get total registrations count
       const totalRegistrations = await storage.getTenantEventRegistrationsCount(req.params.eventId);
-      res.json({ ...event, totalRegistrations });
+      // If no posterUrl, get first image from gallery
+      let posterUrl = event.posterUrl;
+      if (!posterUrl) {
+        const images = await storage.getTenantEventImages(event.id);
+        if (images.length > 0) {
+          posterUrl = images[0].imageUrl;
+        }
+      }
+      res.json({ ...event, posterUrl, totalRegistrations });
     } catch (error) {
       console.error("Get tenant event error:", error);
       res.status(500).json({ error: "Erreur serveur" });
@@ -10480,14 +10496,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/public/associations/:associationId/events", async (req, res) => {
     try {
       const events = await storage.getAssociationEvents(req.params.associationId, false);
-      // Add registration counts to events
-      const eventsWithCounts = await Promise.all(
+      // Add registration counts and first image to events
+      const eventsWithData = await Promise.all(
         events.map(async (event) => {
           const totalRegistrations = await storage.getAssociationEventRegistrationsCount(event.id);
-          return { ...event, totalRegistrations };
+          // If no posterUrl, get first image from gallery
+          let posterUrl = event.posterUrl;
+          if (!posterUrl) {
+            const images = await storage.getAssociationEventImages(event.id);
+            if (images.length > 0) {
+              posterUrl = images[0].imageUrl;
+            }
+          }
+          return { ...event, posterUrl, totalRegistrations };
         })
       );
-      res.json(eventsWithCounts);
+      res.json(eventsWithData);
     } catch (error) {
       console.error("Get public association events error:", error);
       res.status(500).json({ error: "Erreur serveur" });
@@ -10503,7 +10527,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       // Get total registrations count
       const totalRegistrations = await storage.getAssociationEventRegistrationsCount(req.params.eventId);
-      res.json({ ...event, totalRegistrations });
+      // If no posterUrl, get first image from gallery
+      let posterUrl = event.posterUrl;
+      if (!posterUrl) {
+        const images = await storage.getAssociationEventImages(event.id);
+        if (images.length > 0) {
+          posterUrl = images[0].imageUrl;
+        }
+      }
+      res.json({ ...event, posterUrl, totalRegistrations });
     } catch (error) {
       console.error("Get public association event error:", error);
       res.status(500).json({ error: "Erreur serveur" });
