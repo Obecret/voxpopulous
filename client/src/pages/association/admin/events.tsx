@@ -57,6 +57,7 @@ const eventFormSchema = z.object({
   domainId: z.string().optional(),
   posterUrl: z.string().optional(),
   bookingUrl: z.string().optional(),
+  videoUrl: z.string().optional(),
   capacity: z.number().optional(),
 });
 
@@ -122,6 +123,7 @@ export default function AssociationAdminEvents() {
       domainId: "",
       posterUrl: "",
       bookingUrl: "",
+      videoUrl: "",
       capacity: undefined,
     },
   });
@@ -143,6 +145,7 @@ export default function AssociationAdminEvents() {
       domainId: "",
       posterUrl: "",
       bookingUrl: "",
+      videoUrl: "",
       capacity: undefined,
     },
   });
@@ -167,6 +170,7 @@ export default function AssociationAdminEvents() {
       domainId: event.domainId ?? "",
       posterUrl: event.posterUrl ?? "",
       bookingUrl: event.bookingUrl ?? "",
+      videoUrl: event.videoUrl ?? "",
       capacity: event.capacity ?? undefined,
     });
     try {
@@ -200,6 +204,7 @@ export default function AssociationAdminEvents() {
         domainId: values.domainId || null,
         posterUrl: values.posterUrl || null,
         bookingUrl: values.bookingUrl || null,
+        videoUrl: values.videoUrl || null,
         capacity: values.capacity || null,
         status: "SCHEDULED",
       });
@@ -252,6 +257,7 @@ export default function AssociationAdminEvents() {
         domainId: values.domainId || null,
         posterUrl: values.posterUrl || null,
         bookingUrl: values.bookingUrl || null,
+        videoUrl: values.videoUrl || null,
         capacity: values.capacity || null,
       });
       const currentImages = images || [];
@@ -733,6 +739,24 @@ export default function AssociationAdminEvents() {
                         )}
                       />
                     )}
+
+                    <FormField
+                      control={form.control}
+                      name="videoUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>URL Video (YouTube, etc.)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="https://www.youtube.com/watch?v=..." 
+                              {...field} 
+                              data-testid="input-video-url"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
                   <div className="space-y-4">
@@ -1058,6 +1082,24 @@ export default function AssociationAdminEvents() {
                           )}
                         />
                       )}
+
+                      <FormField
+                        control={editForm.control}
+                        name="videoUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>URL Video (YouTube, etc.)</FormLabel>
+                            <FormControl>
+                              <Input 
+                                placeholder="https://www.youtube.com/watch?v=..." 
+                                {...field} 
+                                data-testid="edit-input-video-url"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
                     <div className="space-y-4">
