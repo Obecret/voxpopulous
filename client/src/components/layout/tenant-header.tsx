@@ -15,6 +15,7 @@ interface TenantFeatures {
   hasIdeas: boolean;
   hasIncidents: boolean;
   hasMeetings: boolean;
+  hasEvents: boolean;
   features: string[];
 }
 

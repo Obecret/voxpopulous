@@ -43,6 +43,7 @@ interface TenantFeatures {
   hasIdeas: boolean;
   hasIncidents: boolean;
   hasMeetings: boolean;
+  hasEvents: boolean;
   features: string[];
 }
 
@@ -90,6 +91,7 @@ const ROUTE_TO_MENU_CODE: Record<string, AdminMenuCode> = {
   "ideas": "IDEAS",
   "incidents": "INCIDENTS",
   "meetings": "MEETINGS",
+  "events": "EVENTS",
   "associations": "ASSOCIATIONS",
   "communes": "ASSOCIATIONS",
   "elus": "ELUS",
@@ -122,11 +124,12 @@ export function AdminLayout({ children, tenant, user, electedOfficial, accountBl
   });
 
   const allNavItems = useMemo(() => {
-    const baseItems: Array<{ href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; featureKey: "hasIdeas" | "hasIncidents" | "hasMeetings" | null }> = [
+    const baseItems: Array<{ href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; featureKey: "hasIdeas" | "hasIncidents" | "hasMeetings" | "hasEvents" | null }> = [
       { href: `/structures/${slug}/admin`, label: "Tableau de bord", icon: LayoutDashboard, exact: true, featureKey: null },
       { href: `/structures/${slug}/admin/ideas`, label: "Idees", icon: Lightbulb, featureKey: "hasIdeas" },
       { href: `/structures/${slug}/admin/incidents`, label: "Signalements", icon: AlertTriangle, featureKey: "hasIncidents" },
-      { href: `/structures/${slug}/admin/meetings`, label: "Evenements", icon: Calendar, featureKey: "hasMeetings" },
+      { href: `/structures/${slug}/admin/meetings`, label: "Reunions publiques", icon: Calendar, featureKey: "hasMeetings" },
+      { href: `/structures/${slug}/admin/events`, label: "Evenements", icon: Calendar, featureKey: "hasEvents" },
     ];
     
     if (tenant?.tenantType !== "ASSOCIATION") {
@@ -162,7 +165,7 @@ export function AdminLayout({ children, tenant, user, electedOfficial, accountBl
     return location.startsWith(href);
   };
 
-  const isFeatureEnabled = (featureKey: "hasIdeas" | "hasIncidents" | "hasMeetings" | null): boolean => {
+  const isFeatureEnabled = (featureKey: "hasIdeas" | "hasIncidents" | "hasMeetings" | "hasEvents" | null): boolean => {
     if (!featureKey) return true;
     if (!features) return true;
     return features[featureKey];

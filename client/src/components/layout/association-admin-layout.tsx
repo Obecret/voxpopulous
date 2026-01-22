@@ -75,6 +75,7 @@ interface TenantFeatures {
   hasIdeas: boolean;
   hasIncidents: boolean;
   hasMeetings: boolean;
+  hasEvents: boolean;
   features: string[];
 }
 
@@ -102,7 +103,8 @@ export function AssociationAdminLayout({ children, association, user, tenantSlug
     { href: `/structures/${tenantSlug}/${assocSlug}/admin`, label: "Tableau de bord", icon: LayoutDashboard, exact: true, featureKey: null },
     { href: `/structures/${tenantSlug}/${assocSlug}/admin/ideas`, label: "Idees", icon: Lightbulb, featureKey: "hasIdeas" as const },
     { href: `/structures/${tenantSlug}/${assocSlug}/admin/incidents`, label: "Signalements", icon: AlertTriangle, featureKey: "hasIncidents" as const },
-    { href: `/structures/${tenantSlug}/${assocSlug}/admin/meetings`, label: "Evenements", icon: Calendar, featureKey: "hasMeetings" as const },
+    { href: `/structures/${tenantSlug}/${assocSlug}/admin/meetings`, label: "Reunions", icon: Calendar, featureKey: "hasMeetings" as const },
+    { href: `/structures/${tenantSlug}/${assocSlug}/admin/events`, label: "Evenements", icon: Calendar, featureKey: "hasEvents" as const },
     { href: `/structures/${tenantSlug}/${assocSlug}/admin/bureau`, label: "Bureau", icon: UserCog, featureKey: null },
     { href: `/structures/${tenantSlug}/${assocSlug}/admin/domains`, label: "Domaines", icon: Tags, featureKey: null },
     { href: `/structures/${tenantSlug}/${assocSlug}/admin/photos`, label: "Photos", icon: Image, featureKey: null },
@@ -115,7 +117,7 @@ export function AssociationAdminLayout({ children, association, user, tenantSlug
     return location.startsWith(href);
   };
 
-  const isFeatureEnabled = (featureKey: "hasIdeas" | "hasIncidents" | "hasMeetings" | null): boolean => {
+  const isFeatureEnabled = (featureKey: "hasIdeas" | "hasIncidents" | "hasMeetings" | "hasEvents" | null): boolean => {
     if (!featureKey) return true;
     if (!features) return true;
     return features[featureKey];

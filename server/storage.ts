@@ -1448,16 +1448,17 @@ export class DatabaseStorage implements IStorage {
     hasIdeas: boolean;
     hasIncidents: boolean;
     hasMeetings: boolean;
+    hasEvents: boolean;
     features: string[];
     planName?: string;
   }> {
     const tenant = await this.getTenantById(tenantId);
     if (!tenant) {
-      return { hasIdeas: false, hasIncidents: false, hasMeetings: false, features: [] };
+      return { hasIdeas: false, hasIncidents: false, hasMeetings: false, hasEvents: false, features: [] };
     }
 
     // Get plan features (legacy flags)
-    let planFeatures = { hasIdeas: true, hasIncidents: true, hasMeetings: true, planName: undefined as string | undefined };
+    let planFeatures = { hasIdeas: true, hasIncidents: true, hasMeetings: true, hasEvents: true, planName: undefined as string | undefined };
     let catalogFeatureCodes: string[] = [];
     
     if (tenant.subscriptionPlanId) {
@@ -1467,6 +1468,7 @@ export class DatabaseStorage implements IStorage {
           hasIdeas: plan.hasIdeas,
           hasIncidents: plan.hasIncidents,
           hasMeetings: plan.hasMeetings,
+          hasEvents: plan.hasEvents,
           planName: plan.name,
         };
         
@@ -1490,6 +1492,7 @@ export class DatabaseStorage implements IStorage {
       hasIdeas: overrides?.hasIdeas ?? planFeatures.hasIdeas,
       hasIncidents: overrides?.hasIncidents ?? planFeatures.hasIncidents,
       hasMeetings: overrides?.hasMeetings ?? planFeatures.hasMeetings,
+      hasEvents: overrides?.hasEvents ?? planFeatures.hasEvents,
       features: catalogFeatureCodes,
       planName: planFeatures.planName,
     };
@@ -1504,6 +1507,9 @@ export class DatabaseStorage implements IStorage {
     if (effectiveFeatures.hasMeetings && !effectiveFeatures.features.includes('meetings')) {
       effectiveFeatures.features.push('meetings');
     }
+    if (effectiveFeatures.hasEvents && !effectiveFeatures.features.includes('events')) {
+      effectiveFeatures.features.push('events');
+    }
     
     return effectiveFeatures;
   }
@@ -1513,12 +1519,13 @@ export class DatabaseStorage implements IStorage {
     hasIdeas: boolean;
     hasIncidents: boolean;
     hasMeetings: boolean;
+    hasEvents: boolean;
     features: string[];
     planName?: string;
   }> {
     const association = await this.getAssociationById(associationId);
     if (!association) {
-      return { hasIdeas: false, hasIncidents: false, hasMeetings: false, features: [] };
+      return { hasIdeas: false, hasIncidents: false, hasMeetings: false, hasEvents: false, features: [] };
     }
     
     // Inherit features from parent tenant
