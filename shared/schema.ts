@@ -257,6 +257,51 @@ export const meetingRegistrations = pgTable("meeting_registrations", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Events for tenants (municipalities/EPCI)
+export const eventTypeEnum = pgEnum("event_type", ["STANDARD", "SPECTACLE"]);
+export const eventStatusEnum = pgEnum("event_status", ["SCHEDULED", "CANCELLED", "COMPLETED"]);
+
+export const tenantEvents = pgTable("tenant_events", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id", { length: 36 }).notNull().references(() => tenants.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  eventType: eventTypeEnum("event_type").notNull().default("STANDARD"),
+  isMultiDay: boolean("is_multi_day").notNull().default(false),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  location: text("location").notNull(),
+  status: eventStatusEnum("status").notNull().default("SCHEDULED"),
+  posterUrl: text("poster_url"),
+  posterObjectPath: text("poster_object_path"),
+  bookingUrl: text("booking_url"),
+  domainId: varchar("domain_id", { length: 36 }),
+  isArchived: boolean("is_archived").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Events for associations
+export const associationEvents = pgTable("association_events", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  associationId: varchar("association_id", { length: 36 }).notNull().references(() => associations.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  eventType: eventTypeEnum("event_type").notNull().default("STANDARD"),
+  isMultiDay: boolean("is_multi_day").notNull().default(false),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  location: text("location").notNull(),
+  status: eventStatusEnum("status").notNull().default("SCHEDULED"),
+  posterUrl: text("poster_url"),
+  posterObjectPath: text("poster_object_path"),
+  bookingUrl: text("booking_url"),
+  domainId: varchar("domain_id", { length: 36 }),
+  isArchived: boolean("is_archived").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -1273,6 +1318,24 @@ export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
 export type MeetingIdea = typeof meetingIdeas.$inferSelect;
 export type MeetingRegistration = typeof meetingRegistrations.$inferSelect;
 export type InsertMeetingRegistration = z.infer<typeof insertMeetingRegistrationSchema>;
+
+export const insertTenantEventSchema = createInsertSchema(tenantEvents).omit({
+  id: true,
+  tenantId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type TenantEvent = typeof tenantEvents.$inferSelect;
+export type InsertTenantEvent = z.infer<typeof insertTenantEventSchema>;
+
+export const insertAssociationEventSchema = createInsertSchema(associationEvents).omit({
+  id: true,
+  associationId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type AssociationEvent = typeof associationEvents.$inferSelect;
+export type InsertAssociationEvent = z.infer<typeof insertAssociationEventSchema>;
 
 export const insertSuperadminSchema = createInsertSchema(superadmins).omit({
   id: true,
