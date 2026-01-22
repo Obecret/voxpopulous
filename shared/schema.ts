@@ -258,20 +258,20 @@ export const meetingRegistrations = pgTable("meeting_registrations", {
 });
 
 // Events for tenants (municipalities/EPCI)
-export const eventTypeEnum = pgEnum("event_type", ["STANDARD", "SPECTACLE"]);
 export const eventStatusEnum = pgEnum("event_status", ["SCHEDULED", "CANCELLED", "COMPLETED"]);
 
 export const tenantEvents = pgTable("tenant_events", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id", { length: 36 }).notNull().references(() => tenants.id),
+  eventTypeId: varchar("event_type_id", { length: 36 }),
   title: text("title").notNull(),
   description: text("description"),
-  eventType: eventTypeEnum("event_type").notNull().default("STANDARD"),
   isMultiDay: boolean("is_multi_day").notNull().default(false),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   location: text("location").notNull(),
   status: eventStatusEnum("status").notNull().default("SCHEDULED"),
+  capacity: integer("capacity"),
   posterUrl: text("poster_url"),
   posterObjectPath: text("poster_object_path"),
   bookingUrl: text("booking_url"),
@@ -281,18 +281,47 @@ export const tenantEvents = pgTable("tenant_events", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Event images for tenants
+export const tenantEventImages = pgTable("tenant_event_images", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id", { length: 36 }).notNull().references(() => tenantEvents.id, { onDelete: "cascade" }),
+  imageUrl: text("image_url").notNull(),
+  imageObjectPath: text("image_object_path"),
+  caption: text("caption"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Event registrations for tenants (for public meetings)
+export const tenantEventRegistrations = pgTable("tenant_event_registrations", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id", { length: 36 }).notNull().references(() => tenantEvents.id, { onDelete: "cascade" }),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Event-Idea linking for tenants
+export const tenantEventIdeas = pgTable("tenant_event_ideas", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id", { length: 36 }).notNull().references(() => tenantEvents.id, { onDelete: "cascade" }),
+  ideaId: varchar("idea_id", { length: 36 }).notNull().references(() => ideas.id, { onDelete: "cascade" }),
+});
+
 // Events for associations
 export const associationEvents = pgTable("association_events", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
   associationId: varchar("association_id", { length: 36 }).notNull().references(() => associations.id),
+  eventTypeId: varchar("event_type_id", { length: 36 }),
   title: text("title").notNull(),
   description: text("description"),
-  eventType: eventTypeEnum("event_type").notNull().default("STANDARD"),
   isMultiDay: boolean("is_multi_day").notNull().default(false),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   location: text("location").notNull(),
   status: eventStatusEnum("status").notNull().default("SCHEDULED"),
+  capacity: integer("capacity"),
   posterUrl: text("poster_url"),
   posterObjectPath: text("poster_object_path"),
   bookingUrl: text("booking_url"),
@@ -300,6 +329,17 @@ export const associationEvents = pgTable("association_events", {
   isArchived: boolean("is_archived").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Event images for associations
+export const associationEventImages = pgTable("association_event_images", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id", { length: 36 }).notNull().references(() => associationEvents.id, { onDelete: "cascade" }),
+  imageUrl: text("image_url").notNull(),
+  imageObjectPath: text("image_object_path"),
+  caption: text("caption"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const subscriptionPlans = pgTable("subscription_plans", {
@@ -1172,6 +1212,26 @@ export const globalAssociationDomains = pgTable("global_association_domains", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Global Event Types - managed by superadmin
+export const globalEventTypes = pgTable("global_event_types", {
+  id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  icon: text("icon"),
+  color: text("color"),
+  hasCapacity: boolean("has_capacity").notNull().default(false),
+  hasMultiDay: boolean("has_multi_day").notNull().default(false),
+  hasPoster: boolean("has_poster").notNull().default(false),
+  hasBookingUrl: boolean("has_booking_url").notNull().default(false),
+  hasIdeaLinking: boolean("has_idea_linking").notNull().default(false),
+  hasMultipleImages: boolean("has_multiple_images").notNull().default(false),
+  displayOrder: integer("display_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Intervention Domains for Tenants (municipalities) - assigned to elected officials
 export const tenantInterventionDomains = pgTable("tenant_intervention_domains", {
   id: varchar("id", { length: 36 }).primaryKey().default(sql`gen_random_uuid()`),
@@ -1339,6 +1399,33 @@ export const insertAssociationEventSchema = createInsertSchema(associationEvents
 });
 export type AssociationEvent = typeof associationEvents.$inferSelect;
 export type InsertAssociationEvent = z.infer<typeof insertAssociationEventSchema>;
+
+export const insertTenantEventImageSchema = createInsertSchema(tenantEventImages).omit({
+  id: true,
+  createdAt: true,
+});
+export type TenantEventImage = typeof tenantEventImages.$inferSelect;
+export type InsertTenantEventImage = z.infer<typeof insertTenantEventImageSchema>;
+
+export const insertAssociationEventImageSchema = createInsertSchema(associationEventImages).omit({
+  id: true,
+  createdAt: true,
+});
+export type AssociationEventImage = typeof associationEventImages.$inferSelect;
+export type InsertAssociationEventImage = z.infer<typeof insertAssociationEventImageSchema>;
+
+export const insertTenantEventRegistrationSchema = createInsertSchema(tenantEventRegistrations).omit({
+  id: true,
+  createdAt: true,
+});
+export type TenantEventRegistration = typeof tenantEventRegistrations.$inferSelect;
+export type InsertTenantEventRegistration = z.infer<typeof insertTenantEventRegistrationSchema>;
+
+export const insertTenantEventIdeaSchema = createInsertSchema(tenantEventIdeas).omit({
+  id: true,
+});
+export type TenantEventIdea = typeof tenantEventIdeas.$inferSelect;
+export type InsertTenantEventIdea = z.infer<typeof insertTenantEventIdeaSchema>;
 
 export const insertSuperadminSchema = createInsertSchema(superadmins).omit({
   id: true,
@@ -1684,6 +1771,15 @@ export const insertGlobalAssociationDomainSchema = createInsertSchema(globalAsso
 });
 export type GlobalAssociationDomain = typeof globalAssociationDomains.$inferSelect;
 export type InsertGlobalAssociationDomain = z.infer<typeof insertGlobalAssociationDomainSchema>;
+
+// Global Event Types schemas and types
+export const insertGlobalEventTypeSchema = createInsertSchema(globalEventTypes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type GlobalEventType = typeof globalEventTypes.$inferSelect;
+export type InsertGlobalEventType = z.infer<typeof insertGlobalEventTypeSchema>;
 
 export const insertTenantInterventionDomainSchema = createInsertSchema(tenantInterventionDomains).omit({
   id: true,
