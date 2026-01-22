@@ -72,6 +72,7 @@ export default function AdminEvents() {
   const [showArchived, setShowArchived] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [editImages, setEditImages] = useState<string[]>([]);
+  const [originalEditImages, setOriginalEditImages] = useState<string[]>([]);
 
   const { data: events, isLoading } = useQuery<TenantEvent[]>({
     queryKey: ["/api/tenants", params.slug, "admin", "events", { showArchived }],
@@ -155,13 +156,17 @@ export default function AdminEvents() {
       const response = await fetch(`/api/tenants/${params.slug}/admin/events/${event.id}/images`);
       if (response.ok) {
         const images = await response.json();
-        setEditImages(images.map((img: { imageUrl: string }) => normalizeImageUrl(img.imageUrl)));
+        const normalizedUrls = images.map((img: { imageUrl: string }) => normalizeImageUrl(img.imageUrl));
+        setEditImages(normalizedUrls);
+        setOriginalEditImages(normalizedUrls);
       } else {
         setEditImages([]);
+        setOriginalEditImages([]);
       }
     } catch (error) {
       console.error("Error loading event images:", error);
       setEditImages([]);
+      setOriginalEditImages([]);
     }
   };
 
@@ -218,7 +223,7 @@ export default function AdminEvents() {
   });
 
   const updateEventMutation = useMutation({
-    mutationFn: async ({ eventId, data, images }: { eventId: string; data: EventForm; images?: string[] }) => {
+    mutationFn: async ({ eventId, data, images, originalImages }: { eventId: string; data: EventForm; images?: string[]; originalImages?: string[] }) => {
       await apiRequest("PUT", `/api/tenants/${params.slug}/admin/events/${eventId}`, {
         title: data.title,
         description: data.description || null,
@@ -232,13 +237,29 @@ export default function AdminEvents() {
         bookingUrl: data.bookingUrl || null,
         capacity: data.capacity || null,
       });
-      if (images && images.length > 0) {
-        for (let i = 0; i < images.length; i++) {
-          await apiRequest("POST", `/api/tenants/${params.slug}/admin/events/${eventId}/images`, {
-            imageUrl: images[i],
-            sortOrder: i + 100,
+      const currentImages = images || [];
+      const existingImages = originalImages || [];
+      // Find images to delete (in original but not in current)
+      const imagesToDelete = existingImages.filter(img => !currentImages.includes(img));
+      // Find new images to add (in current but not in original)
+      const imagesToAdd = currentImages.filter(img => !existingImages.includes(img));
+      // Delete removed images
+      for (const imageUrl of imagesToDelete) {
+        try {
+          await apiRequest("DELETE", `/api/tenants/${params.slug}/admin/events/${eventId}/images`, {
+            imageUrl,
           });
+        } catch (error) {
+          console.error("Error deleting image:", error);
         }
+      }
+      // Add new images
+      const maxSortOrder = currentImages.length;
+      for (let i = 0; i < imagesToAdd.length; i++) {
+        await apiRequest("POST", `/api/tenants/${params.slug}/admin/events/${eventId}/images`, {
+          imageUrl: imagesToAdd[i],
+          sortOrder: maxSortOrder + i,
+        });
       }
     },
     onSuccess: () => {
@@ -252,6 +273,7 @@ export default function AdminEvents() {
       setSelectedEvent(null);
       setIsEditing(false);
       setEditImages([]);
+      setOriginalEditImages([]);
       toast({
         title: "Evenement mis a jour",
         description: "L'evenement a ete modifie avec succes.",
@@ -790,6 +812,7 @@ export default function AdminEvents() {
             setSelectedEvent(null);
             setIsEditing(false);
             setEditImages([]);
+            setOriginalEditImages([]);
           }
         }}>
           <DialogContent 
@@ -813,7 +836,7 @@ export default function AdminEvents() {
             {selectedEvent && (
               <Form {...editForm}>
                 <form onSubmit={editForm.handleSubmit((data) => {
-                  updateEventMutation.mutate({ eventId: selectedEvent.id, data, images: editImages });
+                  updateEventMutation.mutate({ eventId: selectedEvent.id, data, images: editImages, originalImages: originalEditImages });
                 })} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-4">
@@ -1119,6 +1142,7 @@ export default function AdminEvents() {
                         setSelectedEvent(null);
                         setIsEditing(false);
                         setEditImages([]);
+                        setOriginalEditImages([]);
                       }}>
                         Annuler
                       </Button>

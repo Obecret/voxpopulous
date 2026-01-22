@@ -6432,6 +6432,36 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // Delete tenant event image by URL (used for bulk image management)
+  app.delete("/api/tenants/:slug/admin/events/:eventId/images", async (req, res) => {
+    try {
+      const tenant = await storage.getTenantBySlug(req.params.slug);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      const auth = await checkAdminAuth(req, tenant.id, "EVENTS");
+      if (!auth.authenticated) {
+        return res.status(401).json({ error: auth.error || "Not authenticated" });
+      }
+      if (!auth.hasMenuAccess) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      const event = await storage.getTenantEventById(req.params.eventId);
+      if (!event || event.tenantId !== tenant.id) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      const { imageUrl } = req.body;
+      if (!imageUrl) {
+        return res.status(400).json({ error: "imageUrl is required" });
+      }
+      await storage.deleteTenantEventImageByUrl(event.id, imageUrl);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete tenant event image by URL error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
   // Public tenant event images route
   app.get("/api/public/tenants/:slug/events/:eventId/images", async (req, res) => {
     try {
@@ -10370,6 +10400,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(204).send();
     } catch (error) {
       console.error("Delete association event image error:", error);
+      res.status(500).json({ error: "Erreur serveur" });
+    }
+  });
+
+  // Delete association event image by URL (used for bulk image management)
+  app.delete("/api/associations/:associationId/admin/events/:eventId/images", async (req, res) => {
+    if (!req.session.associationUserId || !req.session.associationId) {
+      return res.status(401).json({ error: "Non authentifie" });
+    }
+    if (req.session.associationId !== req.params.associationId) {
+      return res.status(403).json({ error: "Acces refuse" });
+    }
+    try {
+      const event = await storage.getAssociationEventById(req.params.eventId);
+      if (!event || event.associationId !== req.params.associationId) {
+        return res.status(404).json({ error: "Evenement non trouve" });
+      }
+      const { imageUrl } = req.body;
+      if (!imageUrl) {
+        return res.status(400).json({ error: "imageUrl is required" });
+      }
+      await storage.deleteAssociationEventImageByUrl(event.id, imageUrl);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete association event image by URL error:", error);
       res.status(500).json({ error: "Erreur serveur" });
     }
   });

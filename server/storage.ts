@@ -4154,6 +4154,15 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
+  async deleteTenantEventImageByUrl(eventId: string, imageUrl: string): Promise<boolean> {
+    await db.delete(tenantEventImages)
+      .where(and(
+        eq(tenantEventImages.eventId, eventId),
+        eq(tenantEventImages.imageUrl, imageUrl)
+      ));
+    return true;
+  }
+
   async getAssociationEventImages(eventId: string): Promise<AssociationEventImage[]> {
     return db.select().from(associationEventImages)
       .where(eq(associationEventImages.eventId, eventId))
@@ -4174,6 +4183,15 @@ export class DatabaseStorage implements IStorage {
   async deleteAssociationEventImage(id: string): Promise<boolean> {
     await db.delete(associationEventImages)
       .where(eq(associationEventImages.id, id));
+    return true;
+  }
+
+  async deleteAssociationEventImageByUrl(eventId: string, imageUrl: string): Promise<boolean> {
+    await db.delete(associationEventImages)
+      .where(and(
+        eq(associationEventImages.eventId, eventId),
+        eq(associationEventImages.imageUrl, imageUrl)
+      ));
     return true;
   }
 

@@ -72,6 +72,7 @@ export default function AssociationAdminEvents() {
   const [showArchived, setShowArchived] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [editImages, setEditImages] = useState<string[]>([]);
+  const [originalEditImages, setOriginalEditImages] = useState<string[]>([]);
 
   const { data, isLoading: userLoading, error } = useQuery<{ user: SafeAssociationUser; association: Association }>({
     queryKey: ["/api/tenants", params.slug, "associations", params.assocSlug, "me"],
@@ -160,13 +161,17 @@ export default function AssociationAdminEvents() {
       const response = await fetch(`/api/associations/${data?.association?.id}/admin/events/${event.id}/images`);
       if (response.ok) {
         const images = await response.json();
-        setEditImages(images.map((img: { imageUrl: string }) => normalizeImageUrl(img.imageUrl)));
+        const normalizedUrls = images.map((img: { imageUrl: string }) => normalizeImageUrl(img.imageUrl));
+        setEditImages(normalizedUrls);
+        setOriginalEditImages(normalizedUrls);
       } else {
         setEditImages([]);
+        setOriginalEditImages([]);
       }
     } catch (error) {
       console.error("Error loading event images:", error);
       setEditImages([]);
+      setOriginalEditImages([]);
     }
   };
 
@@ -223,7 +228,7 @@ export default function AssociationAdminEvents() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ eventId, values, images }: { eventId: string; values: EventFormData; images?: string[] }) => {
+    mutationFn: async ({ eventId, values, images, originalImages }: { eventId: string; values: EventFormData; images?: string[]; originalImages?: string[] }) => {
       await apiRequest("PUT", `/api/associations/${data?.association?.id}/admin/events/${eventId}`, {
         title: values.title,
         description: values.description || null,
@@ -237,13 +242,29 @@ export default function AssociationAdminEvents() {
         bookingUrl: values.bookingUrl || null,
         capacity: values.capacity || null,
       });
-      if (images && images.length > 0) {
-        for (let i = 0; i < images.length; i++) {
-          await apiRequest("POST", `/api/associations/${data?.association?.id}/admin/events/${eventId}/images`, {
-            imageUrl: images[i],
-            sortOrder: i + 100,
+      const currentImages = images || [];
+      const existingImages = originalImages || [];
+      // Find images to delete (in original but not in current)
+      const imagesToDelete = existingImages.filter(img => !currentImages.includes(img));
+      // Find new images to add (in current but not in original)
+      const imagesToAdd = currentImages.filter(img => !existingImages.includes(img));
+      // Delete removed images
+      for (const imageUrl of imagesToDelete) {
+        try {
+          await apiRequest("DELETE", `/api/associations/${data?.association?.id}/admin/events/${eventId}/images`, {
+            imageUrl,
           });
+        } catch (error) {
+          console.error("Error deleting image:", error);
         }
+      }
+      // Add new images
+      const maxSortOrder = currentImages.length;
+      for (let i = 0; i < imagesToAdd.length; i++) {
+        await apiRequest("POST", `/api/associations/${data?.association?.id}/admin/events/${eventId}/images`, {
+          imageUrl: imagesToAdd[i],
+          sortOrder: maxSortOrder + i,
+        });
       }
     },
     onSuccess: () => {
@@ -257,6 +278,7 @@ export default function AssociationAdminEvents() {
       setSelectedEvent(null);
       setIsEditing(false);
       setEditImages([]);
+      setOriginalEditImages([]);
       toast({
         title: "Evenement mis a jour",
         description: "L'evenement a ete modifie avec succes.",
@@ -804,6 +826,7 @@ export default function AssociationAdminEvents() {
             setSelectedEvent(null);
             setIsEditing(false);
             setEditImages([]);
+            setOriginalEditImages([]);
           }
         }}>
           <DialogContent 
@@ -827,7 +850,7 @@ export default function AssociationAdminEvents() {
             {selectedEvent && (
               <Form {...editForm}>
                 <form onSubmit={editForm.handleSubmit((values) => {
-                  updateMutation.mutate({ eventId: selectedEvent.id, values, images: editImages });
+                  updateMutation.mutate({ eventId: selectedEvent.id, values, images: editImages, originalImages: originalEditImages });
                 })} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-4">
@@ -1133,6 +1156,7 @@ export default function AssociationAdminEvents() {
                         setSelectedEvent(null);
                         setIsEditing(false);
                         setEditImages([]);
+                        setOriginalEditImages([]);
                       }}>
                         Annuler
                       </Button>
