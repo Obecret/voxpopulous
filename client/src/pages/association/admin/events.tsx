@@ -117,7 +117,7 @@ export default function AssociationAdminEvents() {
   const editEventType = eventTypes.find(t => t.id === watchEditEventTypeId);
   const watchEditIsMultiDay = editForm.watch("isMultiDay");
 
-  const openEditDialog = (event: AssociationEvent) => {
+  const openEditDialog = async (event: AssociationEvent) => {
     setSelectedEvent(event);
     setIsEditing(true);
     const startDateLocal = new Date(event.startDate).toISOString().slice(0, 16);
@@ -135,7 +135,18 @@ export default function AssociationAdminEvents() {
       bookingUrl: event.bookingUrl ?? "",
       capacity: event.capacity ?? undefined,
     });
-    setEditImages([]);
+    try {
+      const response = await fetch(`/api/associations/${data?.association?.id}/admin/events/${event.id}/images`);
+      if (response.ok) {
+        const images = await response.json();
+        setEditImages(images.map((img: { imageUrl: string }) => img.imageUrl));
+      } else {
+        setEditImages([]);
+      }
+    } catch (error) {
+      console.error("Error loading event images:", error);
+      setEditImages([]);
+    }
   };
 
   const createMutation = useMutation({

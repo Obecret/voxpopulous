@@ -112,7 +112,7 @@ export default function AdminEvents() {
   const editEventType = eventTypes.find(t => t.id === watchEditEventTypeId);
   const watchEditIsMultiDay = editForm.watch("isMultiDay");
 
-  const openEditDialog = (event: TenantEvent) => {
+  const openEditDialog = async (event: TenantEvent) => {
     setSelectedEvent(event);
     setIsEditing(true);
     const startDateLocal = new Date(event.startDate).toISOString().slice(0, 16);
@@ -130,7 +130,18 @@ export default function AdminEvents() {
       bookingUrl: event.bookingUrl ?? "",
       capacity: event.capacity ?? undefined,
     });
-    setEditImages([]);
+    try {
+      const response = await fetch(`/api/tenants/${params.slug}/admin/events/${event.id}/images`);
+      if (response.ok) {
+        const images = await response.json();
+        setEditImages(images.map((img: { imageUrl: string }) => img.imageUrl));
+      } else {
+        setEditImages([]);
+      }
+    } catch (error) {
+      console.error("Error loading event images:", error);
+      setEditImages([]);
+    }
   };
 
   const createEventMutation = useMutation({
