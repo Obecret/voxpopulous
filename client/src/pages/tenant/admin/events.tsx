@@ -1,6 +1,27 @@
 import { useState } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+
+// Helper to normalize GCS URLs to local /objects/ paths
+function normalizeImageUrl(url: string): string {
+  if (!url) return url;
+  // Already normalized
+  if (url.startsWith('/objects/')) return url;
+  // GCS URL - extract and convert
+  if (url.startsWith('https://storage.googleapis.com/')) {
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      const uploadsIndex = pathParts.findIndex(p => p === 'uploads');
+      if (uploadsIndex >= 0) {
+        return `/objects/${pathParts.slice(uploadsIndex).join('/')}`;
+      }
+    } catch {
+      // fallback to original
+    }
+  }
+  return url;
+}
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -134,7 +155,7 @@ export default function AdminEvents() {
       const response = await fetch(`/api/tenants/${params.slug}/admin/events/${event.id}/images`);
       if (response.ok) {
         const images = await response.json();
-        setEditImages(images.map((img: { imageUrl: string }) => img.imageUrl));
+        setEditImages(images.map((img: { imageUrl: string }) => normalizeImageUrl(img.imageUrl)));
       } else {
         setEditImages([]);
       }

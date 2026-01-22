@@ -112,8 +112,17 @@ export function ObjectUploader({
         },
       });
 
-      const publicUrl = uploadURL.split("?")[0];
-      onComplete?.(publicUrl);
+      const gcsUrl = uploadURL.split("?")[0];
+      // Extract path from GCS URL and convert to local /objects/ path
+      // GCS URL format: https://storage.googleapis.com/bucket-name/path/to/file
+      const urlObj = new URL(gcsUrl);
+      const pathParts = urlObj.pathname.split('/');
+      // Find "uploads" index and get everything after bucket name
+      const uploadsIndex = pathParts.findIndex(p => p === 'uploads');
+      const objectPath = uploadsIndex >= 0 
+        ? `/objects/${pathParts.slice(uploadsIndex).join('/')}`
+        : gcsUrl; // fallback to original URL
+      onComplete?.(objectPath);
     } catch (error) {
       console.error("Upload error:", error);
       alert("Erreur lors de l'envoi du fichier");
