@@ -684,7 +684,11 @@ export default function AdminEvents() {
                                 <img 
                                   src={url} 
                                   alt={`Image ${index + 1}`} 
-                                  className="w-full h-20 object-cover rounded-md"
+                                  className="w-full h-20 object-cover rounded-md bg-muted border"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3Ctext x='50' y='50' font-size='12' text-anchor='middle' dy='.3em' fill='%23999'%3EImage%3C/text%3E%3C/svg%3E";
+                                  }}
                                 />
                                 <Button
                                   type="button"
@@ -1004,7 +1008,11 @@ export default function AdminEvents() {
                                   <img 
                                     src={url} 
                                     alt={`Image ${index + 1}`} 
-                                    className="w-full h-20 object-cover rounded-md"
+                                    className="w-full h-20 object-cover rounded-md bg-muted border"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%23f0f0f0' width='100' height='100'/%3E%3Ctext x='50' y='50' font-size='12' text-anchor='middle' dy='.3em' fill='%23999'%3EImage%3C/text%3E%3C/svg%3E";
+                                    }}
                                   />
                                   <Button
                                     type="button"
