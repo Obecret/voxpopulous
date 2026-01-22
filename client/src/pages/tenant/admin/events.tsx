@@ -18,7 +18,7 @@ import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminSession } from "@/hooks/use-admin-session";
-import { Search, Plus, Eye, MapPin, Calendar, Loader2, Lock, Archive, ArchiveRestore, Ticket, Image, ExternalLink, Upload, X } from "lucide-react";
+import { Search, Plus, Pencil, MapPin, Calendar, Loader2, Lock, Archive, ArchiveRestore, Ticket, Image, ExternalLink, Upload, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -47,8 +47,10 @@ export default function AdminEvents() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<TenantEvent | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [editImages, setEditImages] = useState<string[]>([]);
 
   const { data: events, isLoading } = useQuery<TenantEvent[]>({
     queryKey: ["/api/tenants", params.slug, "admin", "events", { showArchived }],
@@ -88,6 +90,48 @@ export default function AdminEvents() {
   const watchEventTypeId = form.watch("eventTypeId");
   const selectedEventType = eventTypes.find(t => t.id === watchEventTypeId);
   const watchIsMultiDay = form.watch("isMultiDay");
+
+  const editForm = useForm<EventForm>({
+    resolver: zodResolver(eventFormSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      eventTypeId: "",
+      isMultiDay: false,
+      startDate: "",
+      endDate: "",
+      location: "",
+      domainId: "",
+      posterUrl: "",
+      bookingUrl: "",
+      capacity: undefined,
+    },
+  });
+
+  const watchEditEventTypeId = editForm.watch("eventTypeId");
+  const editEventType = eventTypes.find(t => t.id === watchEditEventTypeId);
+  const watchEditIsMultiDay = editForm.watch("isMultiDay");
+
+  const openEditDialog = (event: TenantEvent) => {
+    setSelectedEvent(event);
+    setIsEditing(true);
+    const startDateLocal = new Date(event.startDate).toISOString().slice(0, 16);
+    const endDateLocal = event.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : "";
+    editForm.reset({
+      title: event.title,
+      description: event.description ?? "",
+      eventTypeId: event.eventTypeId ?? "",
+      isMultiDay: event.isMultiDay ?? false,
+      startDate: startDateLocal,
+      endDate: endDateLocal,
+      location: event.location,
+      domainId: event.domainId ?? "",
+      posterUrl: event.posterUrl ?? "",
+      bookingUrl: event.bookingUrl ?? "",
+      capacity: event.capacity ?? undefined,
+    });
+    setEditImages([]);
+  };
 
   const createEventMutation = useMutation({
     mutationFn: async (data: EventForm & { images?: string[] }) => {
@@ -142,12 +186,28 @@ export default function AdminEvents() {
   });
 
   const updateEventMutation = useMutation({
-    mutationFn: async ({ eventId, data }: { eventId: string; data: Partial<EventForm> }) => {
-      return apiRequest("PUT", `/api/tenants/${params.slug}/admin/events/${eventId}`, {
-        ...data,
-        startDate: data.startDate ? new Date(data.startDate).toISOString() : undefined,
-        endDate: data.endDate ? new Date(data.endDate).toISOString() : null,
+    mutationFn: async ({ eventId, data, images }: { eventId: string; data: EventForm; images?: string[] }) => {
+      await apiRequest("PUT", `/api/tenants/${params.slug}/admin/events/${eventId}`, {
+        title: data.title,
+        description: data.description || null,
+        eventTypeId: data.eventTypeId,
+        isMultiDay: data.isMultiDay,
+        startDate: new Date(data.startDate).toISOString(),
+        endDate: data.isMultiDay && data.endDate ? new Date(data.endDate).toISOString() : null,
+        location: data.location,
+        domainId: data.domainId || null,
+        posterUrl: data.posterUrl || null,
+        bookingUrl: data.bookingUrl || null,
+        capacity: data.capacity || null,
       });
+      if (images && images.length > 0) {
+        for (let i = 0; i < images.length; i++) {
+          await apiRequest("POST", `/api/tenants/${params.slug}/admin/events/${eventId}/images`, {
+            imageUrl: images[i],
+            sortOrder: i + 100,
+          });
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
@@ -158,6 +218,8 @@ export default function AdminEvents() {
           query.queryKey[3] === "events"
       });
       setSelectedEvent(null);
+      setIsEditing(false);
+      setEditImages([]);
       toast({
         title: "Evenement mis a jour",
         description: "L'evenement a ete modifie avec succes.",
@@ -342,10 +404,10 @@ export default function AdminEvents() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setSelectedEvent(event)}
+                              onClick={() => openEditDialog(event)}
                               data-testid={`button-edit-${event.id}`}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -687,99 +749,347 @@ export default function AdminEvents() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={!!selectedEvent} onOpenChange={(open) => !open && setSelectedEvent(null)}>
-          <DialogContent className="max-w-lg">
+        <Dialog open={isEditing && !!selectedEvent} onOpenChange={(open) => {
+          if (!open) {
+            setSelectedEvent(null);
+            setIsEditing(false);
+            setEditImages([]);
+          }
+        }}>
+          <DialogContent 
+            className="max-w-4xl max-h-[85vh] overflow-y-auto"
+            style={editEventType?.color ? { 
+              borderTop: `4px solid ${editEventType.color}`,
+              background: `linear-gradient(to bottom, ${editEventType.color}10 0%, transparent 100px)`
+            } : undefined}
+          >
             <DialogHeader>
-              <DialogTitle>Details de l'evenement</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                {editEventType?.color && (
+                  <span 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: editEventType.color }}
+                  />
+                )}
+                Modifier l'evenement
+              </DialogTitle>
             </DialogHeader>
             {selectedEvent && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-lg">{selectedEvent.title}</h3>
-                  {selectedEvent.description && (
-                    <p className="text-muted-foreground mt-1">{selectedEvent.description}</p>
-                  )}
-                </div>
+              <Form {...editForm}>
+                <form onSubmit={editForm.handleSubmit((data) => {
+                  updateEventMutation.mutate({ eventId: selectedEvent.id, data, images: editImages });
+                })} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                      <FormField
+                        control={editForm.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Titre</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Concert de Noel" {...field} data-testid="edit-input-title" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Date:</span>
-                    <p>{formatDateRange(selectedEvent.startDate, selectedEvent.endDate)}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Lieu:</span>
-                    <p>{selectedEvent.location}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Type:</span>
-                    <p>{eventTypes.find(t => t.id === selectedEvent.eventTypeId)?.name || "Standard"}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Statut:</span>
-                    <div className="mt-1">
-                      <StatusBadge type="event" status={selectedEvent.status} />
-                    </div>
-                  </div>
-                  {selectedEvent.capacity && (
-                    <div>
-                      <span className="text-muted-foreground">Capacite:</span>
-                      <p>{selectedEvent.capacity} places</p>
-                    </div>
-                  )}
-                </div>
+                      <FormField
+                        control={editForm.control}
+                        name="eventTypeId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Type d'evenement</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="edit-select-event-type">
+                                  <SelectValue placeholder="Selectionner un type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {eventTypes.map((type) => (
+                                  <SelectItem key={type.id} value={type.id}>
+                                    <span className="flex items-center gap-2">
+                                      {type.color && (
+                                        <span 
+                                          className="w-2 h-2 rounded-full" 
+                                          style={{ backgroundColor: type.color }}
+                                        />
+                                      )}
+                                      {type.name}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                <div className="space-y-2">
-                  {selectedEvent.posterUrl && (
-                    <div className="flex items-center gap-2">
-                      <Image className="h-4 w-4" />
-                      <a 
-                        href={selectedEvent.posterUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        Voir l'affiche
-                      </a>
-                    </div>
-                  )}
-                  {selectedEvent.bookingUrl && (
-                    <div className="flex items-center gap-2">
-                      <ExternalLink className="h-4 w-4" />
-                      <a 
-                        href={selectedEvent.bookingUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        Lien de reservation
-                      </a>
-                    </div>
-                  )}
-                </div>
+                      <FormField
+                        control={editForm.control}
+                        name="location"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Lieu</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ex: Salle des fetes" {...field} data-testid="edit-input-location" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-                <DialogFooter>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => archiveMutation.mutate({ 
-                      eventId: selectedEvent.id, 
-                      isArchived: !selectedEvent.isArchived 
-                    })}
-                    disabled={archiveMutation.isPending}
-                  >
-                    {selectedEvent.isArchived ? (
-                      <>
-                        <ArchiveRestore className="h-4 w-4 mr-2" />
-                        Restaurer
-                      </>
-                    ) : (
-                      <>
-                        <Archive className="h-4 w-4 mr-2" />
-                        Archiver
-                      </>
-                    )}
-                  </Button>
-                </DialogFooter>
-              </div>
+                      {editEventType?.hasMultiDay && (
+                        <FormField
+                          control={editForm.control}
+                          name="isMultiDay"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center gap-2">
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="edit-switch-multi-day"
+                                />
+                              </FormControl>
+                              <FormLabel className="!mt-0">Evenement sur plusieurs jours</FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={editForm.control}
+                          name="startDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{editEventType?.hasMultiDay && watchEditIsMultiDay ? "Date de debut" : "Date"}</FormLabel>
+                              <FormControl>
+                                <Input type="datetime-local" {...field} data-testid="edit-input-start-date" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {editEventType?.hasMultiDay && watchEditIsMultiDay && (
+                          <FormField
+                            control={editForm.control}
+                            name="endDate"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Date de fin</FormLabel>
+                                <FormControl>
+                                  <Input type="datetime-local" {...field} data-testid="edit-input-end-date" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                      </div>
+
+                      {domains.length > 0 && (
+                        <FormField
+                          control={editForm.control}
+                          name="domainId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Domaine</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="edit-select-domain">
+                                    <SelectValue placeholder="Selectionner un domaine" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {domains.map((domain) => (
+                                    <SelectItem key={domain.id} value={domain.id}>
+                                      {domain.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      {editEventType?.hasCapacity && (
+                        <FormField
+                          control={editForm.control}
+                          name="capacity"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Capacite</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number"
+                                  placeholder="Nombre de places" 
+                                  value={field.value || ""}
+                                  onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                                  data-testid="edit-input-capacity"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      {editEventType?.hasBookingUrl && (
+                        <FormField
+                          control={editForm.control}
+                          name="bookingUrl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>URL de reservation</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="https://..." 
+                                  {...field} 
+                                  data-testid="edit-input-booking-url"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <FormField
+                        control={editForm.control}
+                        name="description"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                placeholder="Description de l'evenement..." 
+                                className="resize-none min-h-[120px]" 
+                                {...field} 
+                                data-testid="edit-input-description"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="space-y-2">
+                        <Label>Ajouter des photos</Label>
+                        <div className="border rounded-lg p-3 bg-muted/30">
+                          {editImages.length > 0 && (
+                            <div className="grid grid-cols-3 gap-2 mb-3">
+                              {editImages.map((url, index) => (
+                                <div key={index} className="relative group">
+                                  <img 
+                                    src={url} 
+                                    alt={`Image ${index + 1}`} 
+                                    className="w-full h-20 object-cover rounded-md"
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="destructive"
+                                    className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => setEditImages(prev => prev.filter((_, i) => i !== index))}
+                                    data-testid={`edit-button-remove-image-${index}`}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <ObjectUploader
+                            onGetUploadUrl={async () => {
+                              const response = await apiRequest("POST", `/api/tenants/${params.slug}/admin/photos/upload-url`);
+                              return response.json();
+                            }}
+                            onComplete={(objectPath) => {
+                              setEditImages(prev => [...prev, objectPath]);
+                            }}
+                            accept="image/*"
+                            compressImages={true}
+                            maxImageWidth={1920}
+                            maxImageHeight={1080}
+                          >
+                            <Button type="button" variant="outline" size="sm" className="w-full" data-testid="edit-button-upload-image">
+                              <Upload className="h-4 w-4 mr-2" />
+                              Ajouter une photo
+                            </Button>
+                          </ObjectUploader>
+                        </div>
+                      </div>
+
+                      {editEventType?.hasPoster && (
+                        <FormField
+                          control={editForm.control}
+                          name="posterUrl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>URL de l'affiche (externe)</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="https://..." 
+                                  {...field} 
+                                  data-testid="edit-input-poster-url"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <DialogFooter className="flex-col sm:flex-row gap-2">
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      onClick={() => archiveMutation.mutate({ 
+                        eventId: selectedEvent.id, 
+                        isArchived: !selectedEvent.isArchived 
+                      })}
+                      disabled={archiveMutation.isPending}
+                    >
+                      {selectedEvent.isArchived ? (
+                        <>
+                          <ArchiveRestore className="h-4 w-4 mr-2" />
+                          Restaurer
+                        </>
+                      ) : (
+                        <>
+                          <Archive className="h-4 w-4 mr-2" />
+                          Archiver
+                        </>
+                      )}
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" onClick={() => {
+                        setSelectedEvent(null);
+                        setIsEditing(false);
+                        setEditImages([]);
+                      }}>
+                        Annuler
+                      </Button>
+                      <Button type="submit" disabled={updateEventMutation.isPending} data-testid="edit-button-submit">
+                        {updateEventMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Enregistrer
+                      </Button>
+                    </div>
+                  </DialogFooter>
+                </form>
+              </Form>
             )}
           </DialogContent>
         </Dialog>
