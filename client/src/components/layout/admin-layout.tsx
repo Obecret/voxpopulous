@@ -42,7 +42,6 @@ interface AdminLayoutProps {
 interface TenantFeatures {
   hasIdeas: boolean;
   hasIncidents: boolean;
-  hasMeetings: boolean;
   hasEvents: boolean;
   features: string[];
 }
@@ -90,7 +89,6 @@ const ROUTE_TO_MENU_CODE: Record<string, AdminMenuCode> = {
   "admin": "DASHBOARD",
   "ideas": "IDEAS",
   "incidents": "INCIDENTS",
-  "meetings": "MEETINGS",
   "events": "EVENTS",
   "associations": "ASSOCIATIONS",
   "communes": "ASSOCIATIONS",
@@ -124,11 +122,10 @@ export function AdminLayout({ children, tenant, user, electedOfficial, accountBl
   });
 
   const allNavItems = useMemo(() => {
-    const baseItems: Array<{ href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; featureKey: "hasIdeas" | "hasIncidents" | "hasMeetings" | "hasEvents" | null }> = [
+    const baseItems: Array<{ href: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; featureKey: "hasIdeas" | "hasIncidents" | "hasEvents" | null }> = [
       { href: `/structures/${slug}/admin`, label: "Tableau de bord", icon: LayoutDashboard, exact: true, featureKey: null },
       { href: `/structures/${slug}/admin/ideas`, label: "Idees", icon: Lightbulb, featureKey: "hasIdeas" },
       { href: `/structures/${slug}/admin/incidents`, label: "Signalements", icon: AlertTriangle, featureKey: "hasIncidents" },
-      { href: `/structures/${slug}/admin/meetings`, label: "Reunions publiques", icon: Calendar, featureKey: "hasMeetings" },
       { href: `/structures/${slug}/admin/events`, label: "Evenements", icon: Calendar, featureKey: "hasEvents" },
     ];
     
@@ -165,7 +162,7 @@ export function AdminLayout({ children, tenant, user, electedOfficial, accountBl
     return location.startsWith(href);
   };
 
-  const isFeatureEnabled = (featureKey: "hasIdeas" | "hasIncidents" | "hasMeetings" | "hasEvents" | null): boolean => {
+  const isFeatureEnabled = (featureKey: "hasIdeas" | "hasIncidents" | "hasEvents" | null): boolean => {
     if (!featureKey) return true;
     if (!features) return true;
     return features[featureKey];

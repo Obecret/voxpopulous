@@ -54,7 +54,6 @@ interface AssociationHeaderProps {
 interface TenantFeatures {
   hasIdeas: boolean;
   hasIncidents: boolean;
-  hasMeetings: boolean;
   hasEvents: boolean;
   features: string[];
 }
@@ -74,7 +73,7 @@ export function AssociationHeader({ association, tenant }: AssociationHeaderProp
   const allLinks = useMemo(() => [
     { href: `${basePath}/ideas`, label: "Idees", icon: Lightbulb, featureKey: "hasIdeas" as const },
     { href: `${basePath}/incidents`, label: "Signalements", icon: AlertTriangle, featureKey: "hasIncidents" as const },
-    { href: `${basePath}/meetings`, label: "Evenements", icon: Calendar, featureKey: "hasMeetings" as const },
+    { href: `${basePath}/events`, label: "Evenements", icon: Calendar, featureKey: "hasEvents" as const },
     { href: `${basePath}/bureau`, label: "Bureau", icon: UserCircle, featureKey: null },
   ], [basePath]);
 

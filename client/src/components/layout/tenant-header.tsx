@@ -14,7 +14,6 @@ interface TenantHeaderProps {
 interface TenantFeatures {
   hasIdeas: boolean;
   hasIncidents: boolean;
-  hasMeetings: boolean;
   hasEvents: boolean;
   features: string[];
 }
@@ -34,7 +33,7 @@ export function TenantHeader({ tenant, isAdmin = false }: TenantHeaderProps) {
   const allLinks = useMemo(() => [
     { href: `/structures/${slug}/ideas`, label: "Idees", icon: Lightbulb, featureKey: "hasIdeas" as const },
     { href: `/structures/${slug}/incidents`, label: "Signalements", icon: AlertTriangle, featureKey: "hasIncidents" as const },
-    { href: `/structures/${slug}/meetings`, label: "Evenements", icon: Calendar, featureKey: "hasMeetings" as const },
+    { href: `/structures/${slug}/events`, label: "Evenements", icon: Calendar, featureKey: "hasEvents" as const },
     { href: `/structures/${slug}/elus`, label: isAssociation ? "Membres" : "Elus", icon: UserCircle, featureKey: null },
     { href: `/structures/${slug}/mes-contributions`, label: "Mes contributions", icon: FileText, featureKey: null },
   ], [slug, isAssociation]);
