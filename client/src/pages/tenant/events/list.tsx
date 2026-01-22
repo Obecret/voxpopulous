@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, MapPin, Users, Clock, ArrowRight, Ticket, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Clock, ArrowRight } from "lucide-react";
 import type { Tenant, TenantEvent, GlobalEventType } from "@shared/schema";
 
 interface TenantEventWithType extends TenantEvent {
@@ -145,33 +145,17 @@ export default function EventsList() {
                 )}
               </div>
             </div>
-            <div className="lg:ml-4 flex flex-col gap-2">
-              {event.bookingUrl && !isPast && (
-                <a href={event.bookingUrl} target="_blank" rel="noopener noreferrer">
-                  <Button 
-                    variant="default" 
-                    className="gap-2 w-full lg:w-auto"
-                    data-testid={`button-book-${event.id}`}
-                  >
-                    <Ticket className="h-4 w-4" />
-                    Reserver
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </a>
-              )}
-              {event.posterUrl && (
-                <a href={event.posterUrl} target="_blank" rel="noopener noreferrer">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="gap-2 w-full lg:w-auto"
-                    data-testid={`button-poster-${event.id}`}
-                  >
-                    Voir l'affiche
-                    <ExternalLink className="h-3 w-3" />
-                  </Button>
-                </a>
-              )}
+            <div className="lg:ml-4">
+              <Link href={`/structures/${params.slug}/events/${event.id}`}>
+                <Button 
+                  variant="outline" 
+                  className="gap-2 w-full lg:w-auto"
+                  data-testid={`button-view-event-${event.id}`}
+                >
+                  Voir l'evenement
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           </div>
         </CardContent>

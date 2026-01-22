@@ -56,6 +56,7 @@ import TrackIncident from "@/pages/tenant/incidents/track";
 import MeetingsList from "@/pages/tenant/meetings/list";
 import MeetingDetail from "@/pages/tenant/meetings/detail";
 import EventsList from "@/pages/tenant/events/list";
+import EventDetail from "@/pages/tenant/events/detail";
 import AdminLogin from "@/pages/tenant/admin/login";
 import AdminDashboard from "@/pages/tenant/admin/dashboard";
 import AdminIdeas from "@/pages/tenant/admin/ideas";
@@ -170,6 +171,7 @@ function Router() {
       <Route path="/structures/:slug/meetings" component={MeetingsList} />
       <Route path="/structures/:slug/meetings/:id" component={MeetingDetail} />
       <Route path="/structures/:slug/events" component={EventsList} />
+      <Route path="/structures/:slug/events/:eventId" component={EventDetail} />
       <Route path="/structures/:slug/elus" component={ElusList} />
       <Route path="/structures/:slug/elus/:id" component={EluProfile} />
       <Route path="/structures/:slug/mes-contributions" component={MyContributions} />
