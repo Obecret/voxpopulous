@@ -6219,7 +6219,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!auth.hasMenuAccess) {
         return res.status(403).json({ error: "Permission denied" });
       }
-      const data = insertTenantEventSchema.parse(req.body);
+      const body = {
+        ...req.body,
+        startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+        endDate: req.body.endDate ? new Date(req.body.endDate) : null,
+      };
+      const data = insertTenantEventSchema.parse(body);
       const event = await storage.createTenantEvent({
         ...data,
         tenantId: tenant.id,
@@ -10171,7 +10176,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(403).json({ error: "Acces refuse" });
     }
     try {
-      const data = insertAssociationEventSchema.parse(req.body);
+      const body = {
+        ...req.body,
+        startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+        endDate: req.body.endDate ? new Date(req.body.endDate) : null,
+      };
+      const data = insertAssociationEventSchema.parse(body);
       const event = await storage.createAssociationEvent({
         ...data,
         associationId: req.params.associationId,
