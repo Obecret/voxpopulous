@@ -112,7 +112,8 @@ export function ObjectUploader({
         },
       });
 
-      onComplete?.(uploadURL);
+      const publicUrl = uploadURL.split("?")[0];
+      onComplete?.(publicUrl);
     } catch (error) {
       console.error("Upload error:", error);
       alert("Erreur lors de l'envoi du fichier");

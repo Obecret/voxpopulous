@@ -6254,7 +6254,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!event || event.tenantId !== tenant.id) {
         return res.status(404).json({ error: "Event not found" });
       }
-      const updated = await storage.updateTenantEvent(event.id, req.body);
+      const updateData = { ...req.body };
+      if (updateData.startDate && typeof updateData.startDate === 'string') {
+        updateData.startDate = new Date(updateData.startDate);
+      }
+      if (updateData.endDate && typeof updateData.endDate === 'string') {
+        updateData.endDate = new Date(updateData.endDate);
+      }
+      const updated = await storage.updateTenantEvent(event.id, updateData);
       res.json(updated);
     } catch (error: any) {
       console.error("Update tenant event error:", error);
@@ -10206,7 +10213,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!event || event.associationId !== req.params.associationId) {
         return res.status(404).json({ error: "Evenement non trouve" });
       }
-      const updated = await storage.updateAssociationEvent(event.id, req.body);
+      const updateData = { ...req.body };
+      if (updateData.startDate && typeof updateData.startDate === 'string') {
+        updateData.startDate = new Date(updateData.startDate);
+      }
+      if (updateData.endDate && typeof updateData.endDate === 'string') {
+        updateData.endDate = new Date(updateData.endDate);
+      }
+      const updated = await storage.updateAssociationEvent(event.id, updateData);
       res.json(updated);
     } catch (error: any) {
       console.error("Association event update error:", error);
