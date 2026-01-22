@@ -23,7 +23,8 @@ import {
   Tag,
   Calculator,
   Activity,
-  Layers
+  Layers,
+  Calendar
 } from "lucide-react";
 import { useSuperadminTheme } from "@/hooks/use-superadmin-theme";
 import {
@@ -157,6 +158,11 @@ const chorusProMenuItems = [
     title: "Domaines",
     url: "/superadmin/domains",
     icon: Layers,
+  },
+  {
+    title: "Types d'evenements",
+    url: "/superadmin/event-types",
+    icon: Calendar,
   },
 ];
 
